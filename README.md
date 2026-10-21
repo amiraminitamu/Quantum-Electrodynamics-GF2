@@ -40,6 +40,6 @@ is single-mode and requires exact ERIs (`eri_type="std"`).
 Authors: Amirhosein Amini, Jaime Cerda, Leopoldo Mejía, and Arkajit Mandal.
 Please cite [the paper](https://arxiv.org/abs/2606.26076).
 [Figure data and plotting scripts](https://github.com/amiraminitamu/qed-gf2-results)
-are maintained separately. See `CITATION.cff` and `docs/` for conventions.
+are maintained separately. See `CITATION.cff` for citation details.
 
 MIT license.
