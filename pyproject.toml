@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qed-gf2"
+dynamic = ["version"]
+description = "Finite-temperature electronic and coherent-state QED GF2"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  {name = "Amirhosein Amini", email = "amiramini@tamu.edu"},
+]
+keywords = [
+  "quantum chemistry",
+  "Green's functions",
+  "GF2",
+  "quantum electrodynamics",
+  "Matsubara",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS :: MacOS X",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Typing :: Typed",
+]
+dependencies = [
+  "numpy>=1.26,<2",
+  "scipy>=1.11,<2",
+  "opt_einsum>=3.3,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2",
+  "pytest>=7,<10",
+  "ruff>=0.6",
+  "twine>=5",
+]
+
+[project.scripts]
+qed-gf2 = "gf2.cli:main"
+
+[project.urls]
+
+Repository = "https://github.com/amiraminitamu/Quantum-Electrodynamics-GF2"
+Manuscript = "https://arxiv.org/abs/2606.26076"
+
+[tool.setuptools.dynamic]
+version = {attr = "gf2._version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["gf2*"]
+exclude = ["tests*", "tools*", "scripts*"]
+
+[tool.setuptools.package-data]
+gf2 = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E501"]
+
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["E402"]
+"tools/*.py" = ["E402"]

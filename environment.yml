@@ -1,0 +1,18 @@
+name: qedgf2
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  # Psi4 1.9.1 currently permits an incompatible libint solve on some
+  # platforms. Pin the validated 1.9.0 binary and matching libint ABI.
+  - psi4=1.9.0
+  - libint=2.8.2
+  - numpy=1.26
+  - scipy=1.11
+  - qcelemental=0.28
+  - opt_einsum
+  - pytest
+  - build
+  - twine
+  - ruff
+

@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use QED-GF2, please cite this software and the associated manuscript."
+title: "QED-GF2: Finite-temperature electronic and coherent-state quantum-electrodynamical GF2"
+type: software
+version: 0.1.1
+date-released: 2026-10-21
+license: MIT
+authors:
+  - family-names: Amini
+    given-names: Amirhosein
+    email: amiramini@tamu.edu
+repository-code: "https://github.com/amiraminitamu/Quantum-Electrodynamics-GF2"
+url: "https://github.com/amiraminitamu/Quantum-Electrodynamics-GF2"
+preferred-citation:
+  type: article
+  title: "Many-Body Second Order Green's Function Theory for Ab Initio Molecular Quantum Electrodynamics"
+  authors:
+    - family-names: Amini
+      given-names: Amirhosein
+    - family-names: Cerda
+      given-names: Jaime
+    - family-names: Mejía
+      given-names: Leopoldo
+    - family-names: Mandal
+      given-names: Arkajit
+  year: 2026
+  collection-title: arXiv
+  identifiers:
+    - type: other
+      value: "arXiv:2606.26076"
+  url: "https://arxiv.org/abs/2606.26076"
+

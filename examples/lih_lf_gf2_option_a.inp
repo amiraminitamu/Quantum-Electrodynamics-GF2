@@ -1,0 +1,83 @@
+[job]
+name = LiH projected LF-GF2 Option A R=1.60
+
+[molecule]
+charge = 0
+multiplicity = 1
+symmetry = c1
+units = angstrom
+Li 0.0 0.0 0.0
+H  0.0 0.0 1.600000
+
+[psi4]
+basis = 6-311G
+maxiter = 1000
+e_convergence = 1e-10
+d_convergence = 1e-10
+guess = sad
+guess_mix = false
+
+[gf2]
+method = lf-gf2
+eri_type = std
+beta = 200
+n_ifreq = 300
+mid_pt = 100
+n_ifreq_full = 10000
+n_itime = 300
+n_poly = 50
+grid_changed = true
+thresh_ne = 1e-6
+thresh_fock_rms = 1e-6
+thresh_energy = 1e-6
+thresh_sigma_iw = 1e-6
+thresh_bosonic = 1e-6
+maxiter_fock_diis = 600
+maxiter_gf_diis = 600
+bisection_on = false
+newton_on = true
+newton_damping = 0.6
+maxiter_newton = 600
+mu_guess_thresh = 1e-6
+fit_width = 0.05
+n_fit_pts = 50000
+g_mix = none
+sigma_mix = none
+dx_mix = 0.10
+n_threads = 32
+fock_diis_on_off = on
+mp2 = true
+
+# Reduced variational LF optimization.  z is not numerically optimized:
+# for every lambda trial it is imposed analytically as
+# z(lambda;P) = -Tr[g_LF(lambda) P] / omega.
+# BFGS therefore works only in the lambda subspace.  The initial LF-HF
+# reference uses multiple deterministic starts; correlated GF2 iterations
+# warm-start from the preceding lambda solution.
+lf_opt_method = BFGS
+lf_opt_maxiter = 1000
+lf_opt_tol = 1e-8
+lf_opt_gtol = 1e-6
+lf_opt_ntrial = 1
+lf_hf_ntrial = 5
+lf_random_seed = 10086
+lf_penalty = 0.0
+
+# The outer correlated LF-GF2 fixed point retains moderate lambda damping for
+# stability.  z is recomputed exactly after the accepted/damped lambda update.
+lf_param_mix = 0.50
+lf_max_dlambda = 0.05
+lf_param_thresh = 1e-6
+
+# LF-HF reference optimization.  No lambda step cap is applied unless an
+# explicit lf_hf_max_dlambda is supplied.
+maxiter_lf_hf = 1000
+lf_hf_mix = 0.30
+lf_hf_param_mix = 1.0
+thresh_lf_hf_energy = 1e-8
+thresh_lf_hf_density = 1e-7
+
+[cavity]
+units = atomic
+mode1 = 0.12086, 0.05, 0.0, 0.0, 1.0
+

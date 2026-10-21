@@ -1,0 +1,43 @@
+# H2 / cc-pVDZ — deterministic Matsubara GF2 (regression geometry)
+
+[job]
+name   = H2 cc-pVDZ regression
+output = examples/h2_results.out
+
+[molecule]
+charge       = 0
+multiplicity = 1
+symmetry     = c1
+
+H   0.0   0.0   0.0
+H   0.0   0.0   0.74
+
+[psi4]
+basis    = cc-pvdz
+scf_type = pk
+
+[gf2]
+beta         = 50
+n_ifreq      = 300
+mid_pt       = 100
+n_ifreq_full = 10000
+n_itime      = 300
+n_poly       = 50
+eri_type       = df
+se_fit_basis   = cc-pvdz-ri
+fock_fit_basis = cc-pvdz-ri
+thresh_energy   = 1.0e-6
+thresh_fock_rms = 1.0e-6
+thresh_ne       = 1.0e-6
+newton_on       = true
+maxiter_newton  = 60
+maxiter_fock_diis = 30
+maxiter_gf_diis   = 30
+
+# --- linear mixing (None = off) ---
+# g_mix     = 0.7
+# sigma_mix = 0.7
+
+n_threads = 2
+mp2       = true
+
