@@ -1,5 +1,9 @@
 # Quantum Electrodynamics GF2
 
+[![Tests](https://github.com/amiraminitamu/Quantum-Electrodynamics-GF2/actions/workflows/python-package.yml/badge.svg?branch=main)](https://github.com/amiraminitamu/Quantum-Electrodynamics-GF2/actions/workflows/python-package.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![arXiv](https://img.shields.io/badge/arXiv-2606.26076-b31b1b.svg)](https://arxiv.org/abs/2606.26076)
+
 Deterministic electronic GF2, coherent-state QED-GF2 (CS-GF2), and
 single-mode projected Lang-Firsov GF2 (LF-GF2). Includes exact and
 density-fitted kernels, parallel self-energy construction, PES tools,
