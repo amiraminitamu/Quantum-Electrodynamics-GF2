@@ -12,7 +12,4 @@ dependencies:
   - qcelemental=0.28
   - opt_einsum
   - pytest
-  - build
-  - twine
   - ruff
-
