@@ -10,7 +10,7 @@ from _common import BASE_OPTIONS, ONE_MODE, h2
 from gf2 import CavityConfiguration, run_gf2
 from gf2 import greens_function as green
 from gf2 import spline_ft
-from gf2.energy import gf2_correlation_frequency_positive
+from gf2.energy import gf2_correlation, gf2_correlation_frequency_positive
 from gf2.grids import build_grids
 from gf2.options import GF2Options
 from gf2.reporting import Reporter
@@ -91,13 +91,15 @@ def run_convergence_study() -> list[dict[str, float | str]]:
         )
         final = captured[final_key]
         frequency = _frequency_energy(final, captured["reference"], options)
+        grids = build_grids(GF2Options.from_mapping(options))
+        fermionic = gf2_correlation(final["G_tau"], final["Sigma_total_tau"], grids.d_itime)
         rows.append(
             {
                 "level": label,
                 "total": core + correlation,
                 "correlation": correlation,
                 "particle_error": summary.convergence_diagnostics["particle_number"],
-                "time_frequency_error": abs(frequency - correlation),
+                "time_frequency_error": abs(frequency - fermionic),
                 "wall_time_s": summary.wall_time_s,
             }
         )

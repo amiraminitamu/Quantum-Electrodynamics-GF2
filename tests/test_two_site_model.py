@@ -66,8 +66,12 @@ def test_production_csgf2_model_entrypoint_in_free_limit():
         thresh_sigma_iw=1.0e-6,
         thresh_bosonic=1.0e-6,
     )
-    result = run_csgf2(parameters, reference, options)
+    result = run_csgf2(parameters, reference, options, save_final_state=True)
     assert result.converged
     assert np.isclose(result.energy, -2.0, atol=2.0e-8)
     assert result.residuals["electronic_dyson"] < 1.0e-10
     assert result.residuals["bosonic_dyson"] < 1.0e-10
+    final = result.final_state
+    np.testing.assert_array_equal(final["z"], np.zeros(1))
+    assert final["mu"] == final["chemical_potential"]
+    assert final["Sigma_total_iw_current"].shape == final["G_iw"].shape

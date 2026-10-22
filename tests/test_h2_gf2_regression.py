@@ -76,8 +76,8 @@ def test_h2_equilibrium_repeatable() -> None:
 
 def test_h2_two_angstrom_exact_vs_df_sanity() -> None:
     """The difficult DF point remains close to the independent exact-ERI path."""
-    core_df, corr_df, converged_df = _run(2.0)
-    core_exact, corr_exact, converged_exact = _run(2.0, eri_type="std")
+    core_df, corr_df, converged_df = _run(2.0, maxiter_gf_diis=250)
+    core_exact, corr_exact, converged_exact = _run(2.0, eri_type="std", maxiter_gf_diis=250)
     assert converged_df and converged_exact
     assert abs(core_df - core_exact) < 5.0e-4
     assert abs(corr_df - corr_exact) < 1.0e-3

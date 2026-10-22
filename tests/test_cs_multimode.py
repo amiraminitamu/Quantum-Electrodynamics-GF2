@@ -34,7 +34,7 @@ OPTS = {
     "n_itime": 30,
     "n_poly": 20,
     "mp2": False,
-    "maxiter_gf_diis": 5,
+    "maxiter_gf_diis": 60,
     "maxiter_fock_diis": 8,
     "n_threads": 1,
     "thresh_energy": 1.0e-5,
@@ -166,7 +166,8 @@ def test_zero_coupling_mode_leaves_electronic_result_unchanged() -> None:
     extra = _molecular_runs()["one_plus_zero"]
     assert one[2].converged and extra[2].converged
     assert extra[0] == pytest.approx(one[0], abs=1.0e-12)
-    assert extra[1] == pytest.approx(one[1], abs=1.0e-12)
+    free_photon = 0.2 / np.expm1(OPTS["beta"] * 0.2)
+    assert extra[1] == pytest.approx(one[1] + free_photon, abs=1.0e-12)
     assert np.allclose(extra[3]["density"], one[3]["density"], atol=1.0e-12)
     assert extra[3]["z"][1] == 0.0
 

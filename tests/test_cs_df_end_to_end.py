@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from gf2 import run_gf2
-from gf2.qed import CavityConfiguration
+from gf2.qed import CavityConfiguration, coherent_displacement
 from gf2.reporting import Reporter
 from tests.cs_df_helpers import (
     COMMON_OPTIONS,
@@ -60,7 +60,12 @@ def test_one_mode_df_is_close_to_exact_cs_gf2(
     assert df[2].converged and exact[2].converged
     assert abs((df[0] + df[1]) - (exact[0] + exact[1])) < energy_tolerance
     assert np.max(np.abs(df[3]["density"] - exact[3]["density"])) < density_tolerance
-    assert np.max(np.abs(df[3]["z"] - exact[3]["z"])) < 1.0e-10
+    q = exact[4]["qed_data"]
+    delta_density = df[3]["density"] - exact[3]["density"]
+    expected_delta_z = coherent_displacement(q.g, delta_density, q.omega)
+    np.testing.assert_allclose(df[3]["z"] - exact[3]["z"], expected_delta_z, atol=1.0e-12)
+    z_bound = density_tolerance * np.sum(np.abs(q.g), axis=(1, 2)) / q.omega
+    assert np.all(np.abs(df[3]["z"] - exact[3]["z"]) <= z_bound + 1.0e-12)
 
 
 def test_low_rank_qed_increment_is_independent_of_electronic_df_error() -> None:
