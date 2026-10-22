@@ -1,0 +1,53 @@
+name: QED-GF2 checks
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    env:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python and Psi4
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-file: environment.yml
+          create-args: pip
+          init-shell: bash
+          cache-environment: true
+
+      - name: Install QED-GF2
+        run: python -m pip install --no-deps -e .
+
+      - name: Check installation
+        run: |
+          python -c "import psi4, gf2; print('Psi4:', psi4.__version__)"
+          qed-gf2 --version
+
+      - name: Lint
+        run: ruff check gf2 scripts tools tests
+
+      - name: Run tests
+        run: python -m pytest -ra
+
+      - name: Build package
+        run: python -m build
