@@ -58,7 +58,10 @@ def test_multimode_df_dse_is_sum_of_separate_channels() -> None:
 def test_bent_water_two_modes_have_nonzero_offdiagonal_response() -> None:
     result = run_case("h2o", "sto-3g", "df", WATER_MODES)
     _, _, summary, final, reference = result
-    assert summary.converged
+    assert summary.converged, {
+        "iterations": final["iteration"],
+        "residuals": summary.convergence_diagnostics,
+    }
     assert np.all(np.linalg.norm(reference["qed_data"].h_c, axis=(1, 2)) > 1.0e-8)
     assert np.max(np.abs(final["z"])) > 1.0e-8
     assert np.max(np.abs(final["Pi_iv"][:, 0, 1])) > 1.0e-12

@@ -23,7 +23,7 @@ COMMON_OPTIONS: dict[str, Any] = {
     "n_itime": 30,
     "n_poly": 20,
     "mp2": False,
-    "maxiter_gf_diis": 60,
+    "maxiter_gf_diis": 200,
     "maxiter_fock_diis": 8,
     "n_threads": 1,
     "thresh_energy": 1.0e-5,
