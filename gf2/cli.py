@@ -9,6 +9,7 @@ import contextlib
 import importlib.metadata
 import io
 import json
+import os
 import platform
 import sys
 from dataclasses import fields
@@ -18,7 +19,7 @@ from typing import Any
 from ._version import __version__
 
 
-def _banner() -> str:
+def _banner(*, color: bool = False) -> str:
     width = 74
     lines = (
         f"Q E D - G F 2   |   Version {__version__}",
@@ -31,7 +32,23 @@ def _banner() -> str:
         "2026  |  MIT License",
     )
     border = "+" + "-" * width + "+"
-    return "\n".join((border, *(f"|{line:^{width}}|" for line in lines), border))
+    frame = "\n".join((border, *(f"|{line:^{width}}|" for line in lines), border))
+    art = (
+        "    ▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄",
+        "  ▄▀░▒▒▓▓▓█▐  ▀▄░▒▒▒▓▓▓█▐▄░▒▓█▓▓▒▒░▀▄",
+        " ▐░░▄▀▀▀▀▀▀▀    ▐░▒▄▀▀▀▄▀ ▀▀▀▀▀▀▀▄░░▐",
+        " ▌▓ ▌▄▄▄▄▄▄▄▄   ▐▓ ▐▄▄▄     ▄▀▀▀▀   ▌",
+        "▐▓▒▐ ▐▓▒░▓▓██   ▌▒▓▓▒░▌   ▄▀▒▓▓█▄▄▄▀",
+        " ▐▒░▌▐▀▀▓░░▒▓   ▌░ ▐▀▀   ▐▒░░▒▐▀",
+        " ▐░░▀▄▄▄▒░ ░▐   ▌  ▀▄    ▓  ░ ▀▄▄▄▄▄",
+        "  ▀▄░░ ▄▄   ▐▌▄▀    ▀▄   ▀▓▄▄  ░░▒██▌",
+        "    ▀▀▀▀ ▀▀▀▀  ▀▀▀▀▀▀       ▀▀▀▀▀▀▀▀▀",
+    )
+    indent = " " * ((width + 2 - max(map(len, art))) // 2)
+    artwork = "\n".join(indent + line for line in art)
+    if color:
+        artwork = f"\033[92m{artwork}\033[0m"
+    return f"{frame}\n\n{'THIS IS':^{width + 2}}\n{artwork}"
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
@@ -137,7 +154,13 @@ def _run(args: argparse.Namespace) -> int:
     if not path.is_file():
         raise ValueError(f"input file not found: {path}")
 
-    print(_banner(), file=sys.stderr if args.json == "-" else sys.stdout, flush=True)
+    banner_stream = sys.stderr if args.json == "-" else sys.stdout
+    color = (
+        banner_stream.isatty()
+        and "NO_COLOR" not in os.environ
+        and os.environ.get("TERM") != "dumb"
+    )
+    print(_banner(color=color), file=banner_stream, flush=True)
 
     from .input_parser import parse_input_file
     from .psi4_io import reopen_psi4_output, silence_psi4
