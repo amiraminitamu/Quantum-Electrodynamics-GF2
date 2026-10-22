@@ -1,4 +1,5 @@
 # Quantum Electrodynamics GF2
+<img width="250"   alt="image" src="https://github.com/user-attachments/assets/62196e6b-d0e3-4047-8f26-dbb14fa4cd58" />
 
 [![Tests](https://github.com/amiraminitamu/Quantum-Electrodynamics-GF2/actions/workflows/python-package.yml/badge.svg?branch=main)](https://github.com/amiraminitamu/Quantum-Electrodynamics-GF2/actions/workflows/python-package.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
