@@ -18,6 +18,22 @@ from typing import Any
 from ._version import __version__
 
 
+def _banner() -> str:
+    width = 74
+    lines = (
+        f"Q E D - G F 2   |   Version {__version__}",
+        "Many-Body Green's Functions for Molecular Quantum Electrodynamics",
+        "",
+        "Electronic GF2  /  Coherent State  /  Projected Lang-Firsov",
+        "",
+        "Amirhosein Amini  |  Jaime Cerda",
+        "Leopoldo Mejía  |  Arkajit Mandal",
+        "2026  |  MIT License",
+    )
+    border = "+" + "-" * width + "+"
+    return "\n".join((border, *(f"|{line:^{width}}|" for line in lines), border))
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="qed-gf2",
@@ -120,6 +136,8 @@ def _run(args: argparse.Namespace) -> int:
     path = Path(args.input).expanduser().resolve()
     if not path.is_file():
         raise ValueError(f"input file not found: {path}")
+
+    print(_banner(), file=sys.stderr if args.json == "-" else sys.stdout, flush=True)
 
     from .input_parser import parse_input_file
     from .psi4_io import reopen_psi4_output, silence_psi4
