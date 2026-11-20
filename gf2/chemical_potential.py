@@ -4,10 +4,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import numpy.polynomial.polynomial as poly
+from scipy.optimize import brentq
 
 from . import greens_function as gf
 from . import spline_ft
@@ -272,3 +273,103 @@ def tune_newton(
 
     _log_mu_tune("Newton", counter, mu, delta_ne, reporter)
     return mu, rho, G_iw, G0_iw
+
+
+def evaluate_restricted_population_at_mu(
+    F: np.ndarray, S: np.ndarray, S_inv_half: np.ndarray,
+    Sigma_if: np.ndarray, ifreq_grid: np.ndarray, B_beta: np.ndarray,
+    mu: float, *, beta: float,
+    on_evaluate: Callable[[], None] | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, float]:
+    """One Dyson evaluation, spin-summed density, count, and analytic count slope."""
+    state = gf.prepare_fock_orth(F, S_inv_half)
+    if on_evaluate is not None:
+        on_evaluate()
+    green, bare, density, count = _density_from_state(
+        F, S, S_inv_half, Sigma_if, ifreq_grid, B_beta, mu, beta, F.shape[0], state
+    )
+    derivative_green = -green @ (green @ S)
+    derivative_bare = -bare @ (bare @ S)
+    delta_beta, _ = spline_ft.giw_to_gtau_beta(
+        B_beta, derivative_green, derivative_bare, beta
+    )
+    derivative_bare_beta = gf.build_g0_itime_beta_derivative(
+        state, S_inv_half, mu, beta
+    )
+    slope = float(-2.0 * np.einsum(
+        "ij,ji->", derivative_bare_beta + delta_beta, S, optimize=True
+    ).real)
+    return density, green, bare, count, slope
+
+
+def tune_restricted_population_brent(
+    F: np.ndarray, S: np.ndarray, S_inv_half: np.ndarray,
+    Sigma_if: np.ndarray, ifreq_grid: np.ndarray, B_beta: np.ndarray,
+    target: int, mu_init: float, *, beta: float, thresh: float,
+    maxiter: int, reporter: Any | None = None,
+    on_evaluate: Callable[[], None] | None = None,
+) -> tuple[float, np.ndarray, np.ndarray, np.ndarray]:
+    """Bracket μ near the previous value and verify the final electron count."""
+    nbf = F.shape[0]
+    if not 0 <= target <= 2 * nbf:
+        raise ValueError("Restricted population must lie between zero and twice the basis size.")
+    if beta <= 0 or thresh <= 0 or maxiter < 1:
+        raise ValueError("beta, thresh, and maxiter must be positive.")
+    state = gf.prepare_fock_orth(F, S_inv_half)
+    cache: dict[float, tuple[np.ndarray, np.ndarray, np.ndarray, float]] = {}
+
+    def point(value: float) -> tuple[tuple[np.ndarray, np.ndarray, np.ndarray, float], float]:
+        key = float(value)
+        if key not in cache:
+            if on_evaluate is not None:
+                on_evaluate()
+            cache[key] = _density_from_state(
+                F, S, S_inv_half, Sigma_if, ifreq_grid, B_beta,
+                key, beta, nbf, state
+            )
+        result = cache[key]
+        return result, float(result[3] - target)
+
+    current, error = point(mu_init)
+    if abs(error) < thresh:
+        return float(mu_init), current[2], current[0], current[1]
+    direction = -1.0 if error > 0.0 else 1.0
+    width = max(0.01, 1.0 / beta)
+    bracket = None
+    for _ in range(32):
+        other_mu = float(mu_init + direction * width)
+        other, other_error = point(other_mu)
+        if abs(other_error) < thresh:
+            return other_mu, other[2], other[0], other[1]
+        if (error > 0.0) != (other_error > 0.0):
+            bracket = tuple(sorted((float(mu_init), other_mu)))
+            break
+        width *= 2.0
+    if bracket is None:
+        raise RuntimeError("Could not bracket chemical potential near the previous value.")
+
+    class PopulationReached(Exception):
+        def __init__(self, value: float):
+            self.value = value
+
+    def residual(value: float) -> float:
+        difference = point(value)[1]
+        if abs(difference) < thresh:
+            raise PopulationReached(float(value))
+        return difference
+
+    try:
+        root = float(brentq(
+            residual, *bracket, xtol=1e-12,
+            rtol=4 * np.finfo(float).eps, maxiter=maxiter
+        ))
+    except PopulationReached as reached:
+        root = reached.value
+    result, final_error = point(root)
+    if abs(final_error) >= thresh:
+        raise RuntimeError(
+            "Brent chemical-potential search did not reach the particle-number "
+            f"threshold {thresh:.3e}; delta N={final_error:.3e}."
+        )
+    _log_mu_tune("Restricted Brent", 0, root, -final_error, reporter)
+    return root, result[2], result[0], result[1]

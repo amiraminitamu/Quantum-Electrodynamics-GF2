@@ -15,6 +15,11 @@ DEFAULTS: dict[str, Any] = {
     "module": "ft",
     "type": "deterministic",
     "eri_type": "df",
+    "restricted_mu_strategy": "auto",
+    "mu_coupled_damping": 0.5,
+    "mu_coupled_max_step": 0.02,
+    "mu_coupled_charge_scale": 1.0,
+    "mu_strict_polish_steps": 12,
     "se_fit_basis": "cc-pvdz-ri",
     "fock_fit_basis": "cc-pvdz-ri",
     "df_type": "RIFIT",
@@ -57,6 +62,11 @@ class GF2Options:
     module: str = "ft"
     type: str = "deterministic"
     eri_type: str = "df"
+    restricted_mu_strategy: str = "auto"
+    mu_coupled_damping: float = 0.5
+    mu_coupled_max_step: float = 0.02
+    mu_coupled_charge_scale: float = 1.0
+    mu_strict_polish_steps: int = 12
     se_fit_basis: str = "cc-pvdz-ri"
     fock_fit_basis: str = "cc-pvdz-ri"
     df_type: str = "RIFIT"
@@ -115,6 +125,14 @@ class GF2Options:
             raise ValueError("Only type='deterministic' is supported.")
         if normalised["eri_type"] not in {"std", "df"}:
             raise ValueError("eri_type must be either 'std' or 'df'.")
+        if normalised["restricted_mu_strategy"] not in {"auto", "coupled", "nested"}:
+            raise ValueError("restricted_mu_strategy must be auto, coupled, or nested.")
+        if not 0.0 < normalised["mu_coupled_damping"] <= 1.0:
+            raise ValueError("mu_coupled_damping must be in (0, 1].")
+        if normalised["mu_coupled_max_step"] <= 0 or normalised["mu_coupled_charge_scale"] <= 0:
+            raise ValueError("Coupled mu step and charge scale must be positive.")
+        if normalised["mu_strict_polish_steps"] < 1:
+            raise ValueError("mu_strict_polish_steps must be positive.")
         if normalised["dask"]:
             raise ValueError("Distributed execution is not supported.")
         if normalised["n_ifreq"] <= normalised["mid_pt"]:
