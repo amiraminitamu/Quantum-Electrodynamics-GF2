@@ -26,6 +26,7 @@ def _density_from_state(
     beta: float,
     nbf: int,
     orth_state: gf.FockOrthoState,
+    spin_factor: float = 2.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     "Helper: given μ, build G(iω), G_0(iω), ρ(τ=β) and the resulting N_e."
     G_iw, G0_iw = gf.build_g_g0_ifreq(nbf, mu, ifreq_grid, S, F, Sigma_if)
@@ -38,10 +39,95 @@ def _density_from_state(
 
     # is the symmetric projection; the conjugation keeps the convention valid
 
-    rho = -2.0 * G_tb
+    rho = -spin_factor * G_tb
     rho = 0.5 * (rho + rho.conj().T)
     rho = np.real_if_close(rho)
     return G_iw, G0_iw, rho, nelec_from_density(rho, S)
+
+
+def tune_spin_population(
+    F: np.ndarray,
+    S: np.ndarray,
+    S_inv_half: np.ndarray,
+    Sigma_if: np.ndarray,
+    ifreq_grid: np.ndarray,
+    B_beta: np.ndarray,
+    target: int,
+    mu_init: float,
+    *,
+    beta: float,
+    thresh: float,
+    maxiter: int,
+    reporter: Any | None = None,
+    use_newton: bool = True,
+    damping: float = 1.0,
+) -> tuple[float, np.ndarray, np.ndarray, np.ndarray]:
+    """Tune a one-spin population with an adaptive bracket and safe bisection.
+
+    The separate alpha/beta searches hold N_alpha and N_beta fixed.  The
+    bracket covers zero and fully occupied channels without HOMO/LUMO indices.
+    """
+    nbf = F.shape[0]
+    if not 0 <= target <= nbf:
+        raise ValueError("Spin population must lie between zero and basis size.")
+    state = gf.prepare_fock_orth(F, S_inv_half)
+
+    def evaluate(mu: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+        return _density_from_state(
+            F, S, S_inv_half, Sigma_if, ifreq_grid, B_beta,
+            mu, beta, nbf, state, spin_factor=1.0
+        )
+
+    width = max(1.0, float(np.ptp(state.orth_evals)), 20.0 / beta)
+    lo = min(mu_init, float(state.orth_evals[0])) - width
+    hi = max(mu_init, float(state.orth_evals[-1])) + width
+    for _ in range(24):
+        if evaluate(lo)[3] <= target + thresh:
+            break
+        lo -= width
+        width *= 2.0
+    width = max(1.0, float(np.ptp(state.orth_evals)), 20.0 / beta)
+    for _ in range(24):
+        if evaluate(hi)[3] >= target - thresh:
+            break
+        hi += width
+        width *= 2.0
+
+    if maxiter < 1:
+        raise ValueError("maxiter must be positive.")
+    mu = float(np.clip(mu_init, lo, hi))
+    result = evaluate(mu)
+    for step in range(maxiter):
+        delta = result[3] - target
+        if abs(delta) < thresh:
+            break
+        if delta > 0.0:
+            hi = mu
+        else:
+            lo = mu
+        candidate = 0.5 * (lo + hi)
+        if use_newton:
+            g_iw, g0_iw = result[:2]
+            dg_iw = -g_iw @ (g_iw @ S)
+            dg0_iw = -g0_iw @ (g0_iw @ S)
+            delta_beta, _ = spline_ft.giw_to_gtau_beta(
+                B_beta, dg_iw, dg0_iw, beta
+            )
+            dg0_beta = gf.build_g0_itime_beta_derivative(
+                state, S_inv_half, mu, beta
+            )
+            dn = -np.einsum(
+                "ij,ji->", dg0_beta + delta_beta, S, optimize=True
+            ).real
+            if np.isfinite(dn) and dn > 1e-14:
+                proposal = mu - damping * delta / dn
+                if lo < proposal < hi:
+                    candidate = float(proposal)
+        mu = candidate
+        result = evaluate(mu)
+    _log_mu_tune("Spin bisection", step + 1, mu, target - result[3], reporter)
+    return mu, result[2], result[0], result[1]
+
 
 
 def tune_bisection(

@@ -1,0 +1,30 @@
+# Li doublet: fixed N_alpha=2, N_beta=1 UGF2.
+[job]
+name = Li unrestricted GF2
+
+[molecule]
+charge = 0
+multiplicity = 2
+symmetry = c1
+Li 0.0 0.0 0.0
+
+[psi4]
+basis = sto-3g
+scf_type = pk
+
+[gf2]
+spin_mode = unrestricted
+method = gf2
+eri_type = std
+beta = 5
+n_ifreq = 32
+mid_pt = 10
+n_ifreq_full = 512
+n_itime = 32
+n_poly = 12
+g_mix = 0.5
+sigma_mix = 0.5
+maxiter_gf_diis = 120
+maxiter_fock_diis = 20
+n_threads = 1
+mp2 = false

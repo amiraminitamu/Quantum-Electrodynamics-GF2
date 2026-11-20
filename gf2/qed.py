@@ -139,6 +139,17 @@ def polarization_tau(G: np.ndarray, g: np.ndarray) -> np.ndarray:
     return -2.0 * np.einsum("xij,tjk,ykl,tli->txy", g, G, g, G[::-1], optimize=True).real
 
 
+def polarization_tau_unrestricted(
+    G_alpha: np.ndarray, G_beta: np.ndarray, g: np.ndarray
+) -> np.ndarray:
+    """Photon bubble as the sum of two same-spin one-body loops."""
+    return -(
+        np.einsum("xij,tjk,ykl,tli->txy", g, G_alpha, g, G_alpha[::-1], optimize=True)
+        + np.einsum("xij,tjk,ykl,tli->txy", g, G_beta, g, G_beta[::-1], optimize=True)
+    ).real
+
+
+
 def bosonic_frequencies(beta: float, nfreq: int) -> np.ndarray:
     if beta <= 0 or nfreq < 1:
         raise ValueError("beta and nfreq must be positive.")

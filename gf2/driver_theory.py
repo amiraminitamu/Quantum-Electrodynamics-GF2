@@ -261,6 +261,14 @@ def run_gf2(
     reference_data: Mapping[str, Any] | None = None,
 ) -> tuple[float, float, RunSummary]:
     "Run electronic GF2, CS-GF2, or projected LF-GF2."
+    opts = gf2_options if isinstance(gf2_options, GF2Options) else GF2Options.from_mapping(gf2_options)
+    if opts.spin_mode == "unrestricted":
+        if method.lower().replace("_", "-") not in {"gf2", "electronic", "cs-gf2"}:
+            raise NotImplementedError("Unrestricted projected LF-GF2 is not implemented.")
+        if reference_data is not None or any(value is not None for value in (lf_fixed_lambda, lf_initial_state, lf_state_sink)):
+            raise NotImplementedError("Unrestricted model injection and LF-GF2 are not implemented.")
+        from .unrestricted_driver import run_unrestricted_gf2
+        return run_unrestricted_gf2(mol, psi4_options, opts, reporter=reporter, psi4_verbose=psi4_verbose, method=method, cavity=cavity, diagnostic_callback=diagnostic_callback)
     np.set_printoptions(precision=5, linewidth=200, suppress=True)
     if reference_data is None and psi4 is None:
         raise RuntimeError("Molecular calculations require Psi4; models require reference_data.")

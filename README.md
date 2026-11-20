@@ -29,6 +29,23 @@ one-/two-mode CS examples are in `examples/`; LF/PES utilities are in `tools/`.
 Set `QED_GF2_SIGMA_WORKERS` to control self-energy workers separately from
 Psi4 threads.
 
+## Unrestricted electronic and cavity GF2
+
+Set `spin_mode = unrestricted` in `[gf2]` for a spin-resolved UGF2 or
+coherent-state QED-UGF2 calculation. The UHF reference and GF2 iterations
+retain separate alpha and beta populations. Run the included small examples:
+
+```bash
+qed-gf2 examples/open_shell_ugf2.inp --json ugf2.json
+qed-gf2 examples/open_shell_ucs_gf2.inp --json ucs_gf2.json
+```
+
+The first is an electronic Li doublet with exact ERIs. The second is a
+one-mode LiH+ doublet using density fitting. Check `converged`, the spin
+populations, and grid convergence before using an energy in research. The
+unrestricted implementation supports electronic GF2 and coherent-state
+QED-GF2; projected LF-GF2 remains restricted.
+
 ## Restricted chemical potential
 
 Electronic GF2 and CS-GF2 now jointly update the restricted Fock matrix and
@@ -60,8 +77,9 @@ python -m pytest -q
 
 Molecular tests require Psi4 and skip when it is unavailable. Numerical
 convergence with temperature and grid sizes must be checked for each system.
-The package supports real, restricted closed-shell singlets. Projected LF-GF2
-is single-mode and requires exact ERIs (`eri_type="std"`).
+The package supports real restricted and unrestricted electronic and CS-GF2.
+Projected LF-GF2 supports restricted closed-shell singlets, is single-mode,
+and requires exact ERIs (`eri_type="std"`).
 
 Authors: Amirhosein Amini, Jaime Cerda, Leopoldo Mejía, and Arkajit Mandal.
 Please cite [the paper](https://arxiv.org/abs/2606.26076).
