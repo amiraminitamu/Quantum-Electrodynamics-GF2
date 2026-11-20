@@ -73,7 +73,9 @@ def test_cli_help_version_and_invalid_input() -> None:
     assert "Lang-Firsov GF2" in help_result.stdout
     version = _run("--version")
     assert version.returncode == 0
-    assert version.stdout.strip() == "qed-gf2 0.1.1"
+    from gf2._version import __version__
+
+    assert version.stdout.strip() == f"qed-gf2 {__version__}"
     missing = _run("does-not-exist.inp")
     assert missing.returncode == 2
     assert "input file not found" in missing.stderr
