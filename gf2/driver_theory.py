@@ -44,6 +44,7 @@ from .lf_state import (
     validate_lf_warm_start_problem,
 )
 from .options import GF2Options
+from .mu_inner import RestrictedFockMuMixer, safeguarded_mu_step
 from .psi4_io import silence_psi4
 from .qed import (
     CavityConfiguration,
@@ -300,6 +301,14 @@ def run_gf2(
     opts = (
         gf2_options if isinstance(gf2_options, GF2Options) else GF2Options.from_mapping(gf2_options)
     )
+    mu_strategy = opts.restricted_mu_strategy
+    if mu_strategy == "auto":
+        mu_strategy = (
+            "nested" if is_lf or opts.bisection_on or not opts.newton_on
+            or opts.fock_diis_on_off == "off" else "coupled"
+        )
+    if is_lf and mu_strategy == "coupled":
+        raise ValueError("Coupled chemical-potential iteration is not validated for LF-GF2.")
     rep = reporter or Reporter(job_name="untitled")
     if psi4 is not None:
         psi4.core.set_num_threads(opts.n_threads)
@@ -412,6 +421,7 @@ def run_gf2(
     rep.kv("Virtual orbitals", nbf - nocc)
     rep.kv("Basis functions", nbf)
     rep.kv("Chemical potential mu", f"{mu:.10f}")
+    rep.kv("Restricted chemical-potential strategy", mu_strategy)
     rep.kv("Suggested beta", f"{suggested_beta:.6f}")
     rep.kv("Inverse temperature beta", opts.beta)
     rep.kv("ERI type", opts.eri_type)
@@ -544,64 +554,135 @@ def run_gf2(
     pi_outer_prev = Pi_iv.copy() if Pi_iv is not None else None
     d_outer_prev = D_iv.copy() if D_iv is not None else None
     final_residuals: dict[str, float] = {}
+    mu_direct_evaluations = 0
+    mu_strict_searches = 0
+    mu_mixer_fallbacks = 0
+    mu_inner_iterations = 0
 
     for outer in range(opts.maxiter_gf_diis):
         iter_count += 1
         rep.outer_iter(iter_count, g_mix=opts.g_mix, sigma_mix=opts.sigma_mix)
 
         Fock_RMS = np.inf
-        for inner in range(opts.maxiter_fock_diis):
-            mu_eps = np.linalg.eigvalsh(S_inv_half @ F @ S_inv_half) if is_coupled else eps
-            if opts.bisection_on:
-                mu, rho, G_iw, Gnot_iw = chemical_potential.tune_bisection(
-                    nbf,
-                    mu,
-                    grids.ifreq_grid,
-                    S,
-                    S_inv_half,
-                    F,
-                    Sigma_if,
-                    Ne,
-                    tx["B_beta"],
-                    mu_eps,
-                    nocc,
-                    beta=opts.beta,
-                    thresh=opts.thresh_ne,
-                    maxiter=opts.maxiter_bisection,
-                    reporter=rep,
+        if mu_strategy == "coupled":
+            strict_phase = False
+            mixer = RestrictedFockMuMixer(
+                nbf, charge_scale=opts.mu_coupled_charge_scale,
+                max_mu_step=opts.mu_coupled_max_step,
+            )
+            fock_build_rms = np.inf
+            inner_limit = opts.maxiter_fock_diis + opts.mu_strict_polish_steps
+            for inner in range(inner_limit):
+                mu_inner_iterations += 1
+                if inner >= opts.maxiter_fock_diis and not strict_phase:
+                    strict_phase = True
+                    F_diis = RealDIIS()
+                current_fock = F.copy()
+                if strict_phase:
+                    mu_strict_searches += 1
+                    mu, rho, G_iw, Gnot_iw = chemical_potential.tune_restricted_population_brent(
+                        F, S, S_inv_half, Sigma_if, grids.ifreq_grid,
+                        tx["B_beta"], Ne, mu, beta=opts.beta,
+                        thresh=opts.thresh_ne, maxiter=opts.maxiter_bisection,
+                        reporter=rep,
+                    )
+                    charge_error = float(nelec_from_density(rho, S) - Ne)
+                    if abs(charge_error) >= opts.thresh_ne:
+                        raise RuntimeError("Restricted strict population check failed")
+                else:
+                    mu_direct_evaluations += 1
+                    rho, G_iw, Gnot_iw, count, slope = (
+                        chemical_potential.evaluate_restricted_population_at_mu(
+                            F, S, S_inv_half, Sigma_if, grids.ifreq_grid,
+                            tx["B_beta"], mu, beta=opts.beta,
+                        )
+                    )
+                    charge_error = count - Ne
+                built = _build_fock(rho)
+                fock_build_rms = float(np.sqrt(np.mean((built - current_fock) ** 2)))
+                if strict_phase:
+                    F_diis.add(built, current_fock - built)
+                    F = (F_diis.extrapolate() if opts.fock_diis_on_off == "on"
+                         else built)
+                else:
+                    proposed_mu = safeguarded_mu_step(
+                        mu, charge_error, slope,
+                        damping=opts.mu_coupled_damping,
+                        max_step=opts.mu_coupled_max_step,
+                    )
+                    F, mu, fallback = mixer.update(
+                        current_fock, built, mu, proposed_mu, charge_error
+                    )
+                    mu_mixer_fallbacks += int(fallback)
+                Fock_RMS = float(np.sqrt(np.mean((F - current_fock) ** 2)))
+                F_prev = current_fock
+                rep.inner_iter(inner + 1, Fock_RMS)
+                if strict_phase:
+                    if (Fock_RMS < opts.thresh_fock_rms
+                            and fock_build_rms < opts.thresh_fock_rms):
+                        break
+                elif Fock_RMS < opts.thresh_fock_rms:
+                    strict_phase = True
+                    F_diis = RealDIIS()
+            if (not strict_phase or Fock_RMS >= opts.thresh_fock_rms
+                    or fock_build_rms >= opts.thresh_fock_rms):
+                raise RuntimeError(
+                    "Restricted coupled Fock/chemical-potential iteration failed "
+                    "its strict Fock polish; no outer update was accepted."
                 )
-            if opts.newton_on:
-                mu, rho, G_iw, Gnot_iw = chemical_potential.tune_newton(
-                    nbf,
-                    mu,
-                    grids.ifreq_grid,
-                    S,
-                    S_inv_half,
-                    F,
-                    Sigma_if,
-                    Ne,
-                    tx["B_beta"],
-                    mu_eps,
-                    nocc,
-                    beta=opts.beta,
-                    thresh=opts.thresh_ne,
-                    maxiter=opts.maxiter_newton,
-                    damping=opts.newton_damping,
-                    mu_guess_thresh=opts.mu_guess_thresh,
-                    fit_width=opts.fit_width,
-                    n_fit_pts=opts.n_fit_pts,
-                    reporter=rep,
-                )
+        else:
+            for inner in range(opts.maxiter_fock_diis):
+                mu_eps = np.linalg.eigvalsh(S_inv_half @ F @ S_inv_half) if is_coupled else eps
+                if opts.bisection_on:
+                    mu, rho, G_iw, Gnot_iw = chemical_potential.tune_bisection(
+                        nbf,
+                        mu,
+                        grids.ifreq_grid,
+                        S,
+                        S_inv_half,
+                        F,
+                        Sigma_if,
+                        Ne,
+                        tx["B_beta"],
+                        mu_eps,
+                        nocc,
+                        beta=opts.beta,
+                        thresh=opts.thresh_ne,
+                        maxiter=opts.maxiter_bisection,
+                        reporter=rep,
+                    )
+                if opts.newton_on:
+                    mu, rho, G_iw, Gnot_iw = chemical_potential.tune_newton(
+                        nbf,
+                        mu,
+                        grids.ifreq_grid,
+                        S,
+                        S_inv_half,
+                        F,
+                        Sigma_if,
+                        Ne,
+                        tx["B_beta"],
+                        mu_eps,
+                        nocc,
+                        beta=opts.beta,
+                        thresh=opts.thresh_ne,
+                        maxiter=opts.maxiter_newton,
+                        damping=opts.newton_damping,
+                        mu_guess_thresh=opts.mu_guess_thresh,
+                        fit_width=opts.fit_width,
+                        n_fit_pts=opts.n_fit_pts,
+                        reporter=rep,
+                    )
 
-            F_prev = F.copy() if inner > 0 else F_prev
-            F = _build_fock(rho)
-            err = F_prev - F
-            F_diis.add(F, err)
-            F = F_diis.extrapolate()
-            Fock_RMS = float(np.sqrt(np.mean((F - F_prev) ** 2)))
-            rep.inner_iter(inner + 1, Fock_RMS)
-            if opts.fock_diis_on_off == "off" or Fock_RMS < opts.thresh_fock_rms:
-                break
+                F_prev = F.copy() if inner > 0 else F_prev
+                F = _build_fock(rho)
+                err = F_prev - F
+                F_diis.add(F, err)
+                F = F_diis.extrapolate()
+                Fock_RMS = float(np.sqrt(np.mean((F - F_prev) ** 2)))
+                rep.inner_iter(inner + 1, Fock_RMS)
+                if opts.fock_diis_on_off == "off" or Fock_RMS < opts.thresh_fock_rms:
+                    break
 
         if outer == 0:
             if lf_initial_state is not None:
@@ -933,6 +1014,13 @@ def run_gf2(
 
     metadata = interaction.metadata()
     metadata["method"] = method_key
+    metadata.update({
+        "restricted_mu_strategy": mu_strategy,
+        "restricted_mu_direct_evaluations": mu_direct_evaluations,
+        "restricted_mu_strict_searches": mu_strict_searches,
+        "restricted_mu_mixer_fallbacks": mu_mixer_fallbacks,
+        "restricted_mu_inner_iterations": mu_inner_iterations,
+    })
     if is_lf and lf_params is not None:
         metadata.update(
             {

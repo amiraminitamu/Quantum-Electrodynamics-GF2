@@ -29,6 +29,22 @@ one-/two-mode CS examples are in `examples/`; LF/PES utilities are in `tools/`.
 Set `QED_GF2_SIGMA_WORKERS` to control self-energy workers separately from
 Psi4 threads.
 
+## Restricted chemical potential
+
+Electronic GF2 and CS-GF2 now jointly update the restricted Fock matrix and
+chemical potential by default. Each outer iteration finishes with a strict
+electron-count search and Fock check. Set `restricted_mu_strategy = nested`
+in `[gf2]` to use the earlier nested chemical-potential loop. The `auto`
+default retains that earlier loop for projected LF-GF2 and when explicitly
+selecting bisection, disabling Newton, or disabling Fock DIIS.
+
+Run the small exact molecular input with
+`qed-gf2 examples/h2_coupled_mu.inp --json h2_coupled_mu.json`.
+For an exact two-site CS-GF2 case where the routes can differ in convergence,
+run `python examples/coupled_mu_model.py`. This compares both routes on the
+same Hamiltonian and prints the outer-iteration count and electron error.
+Convergence and speed depend on the system and numerical settings.
+
 ## Hubbard-Holstein benchmark
 
 ```bash
