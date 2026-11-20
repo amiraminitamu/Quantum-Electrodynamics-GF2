@@ -29,10 +29,30 @@ one-/two-mode CS examples are in `examples/`; LF/PES utilities are in `tools/`.
 Set `QED_GF2_SIGMA_WORKERS` to control self-energy workers separately from
 Psi4 threads.
 
+The input deck starts with optional ``%`` lines, then a route card, a title,
+charge and multiplicity, Cartesian coordinates, and keywords. A
+``$molecule`` / ``$rem`` namelist is also accepted, as is the older
+``[section]`` form.
+
+```
+%nproc=2
+#P GF2/cc-pVDZ ERI=DF SCF=PK SYMMETRY=C1
+
+H2 cc-pVDZ
+
+0 1
+H  0.0  0.0  0.0
+H  0.0  0.0  0.74
+
+beta 50
+mp2 true
+```
+
 ## Unrestricted electronic and cavity GF2
 
-Set `spin_mode = unrestricted` in `[gf2]` for a spin-resolved UGF2 or
-coherent-state QED-UGF2 calculation. The UHF reference and GF2 iterations
+Use `UGF2` or `UCS-GF2` on the route card for a spin-resolved UGF2 or
+coherent-state QED-UGF2 calculation (`spin_mode unrestricted` in a `$rem`
+or `[gf2]` block does the same). The UHF reference and GF2 iterations
 retain separate alpha and beta populations. Run the included small examples:
 
 ```bash
@@ -50,8 +70,8 @@ QED-GF2; projected LF-GF2 remains restricted.
 
 Electronic GF2 and CS-GF2 now jointly update the restricted Fock matrix and
 chemical potential by default. Each outer iteration finishes with a strict
-electron-count search and Fock check. Set `restricted_mu_strategy = nested`
-in `[gf2]` to use the earlier nested chemical-potential loop. The `auto`
+electron-count search and Fock check. Set `restricted_mu_strategy nested`
+in the keyword block to use the earlier nested chemical-potential loop. The `auto`
 default retains that earlier loop for projected LF-GF2 and when explicitly
 selecting bisection, disabling Newton, or disabling Fock DIIS.
 

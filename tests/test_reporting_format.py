@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 from gf2._version import __version__
@@ -25,13 +26,14 @@ def _summary(**overrides: object) -> RunSummary:
     return RunSummary(**data)  # type: ignore[arg-type]
 
 
-def test_banner_is_asterisk_box_without_artwork() -> None:
-    reporter = Reporter(job_name="H2 regression", echo=False)
+def test_banner_keeps_the_star_box_and_the_green_mark() -> None:
+    reporter = Reporter(job_name="H2 regression", echo=False, color=False)
     reporter.banner("electronic / coherent-state / lang-firsov")
     text = "\n".join(reporter.lines)
     assert "╭" not in text
-    assert "▄" not in text
-    assert "THIS IS" not in text
+    assert "▄" in text
+    assert "THIS IS" in text
+    assert "\033" not in text
     assert f"VERSION {__version__}" in text
     assert "PLEASE CITE ARXIV:2606.26076" in text
     assert "EXECUTION BEGUN" in text
@@ -42,6 +44,39 @@ def test_banner_is_asterisk_box_without_artwork() -> None:
     boxed = [line for line in reporter.lines if line.startswith("* ") and line.endswith(" *")]
     assert boxed
     assert all(len(line) == reporter.width for line in boxed)
+
+
+def test_green_mark_is_colored_on_screen_and_plain_in_the_archive() -> None:
+    class Tty(io.StringIO):
+        def isatty(self) -> bool:
+            return True
+
+    stream = Tty()
+    reporter = Reporter(echo=True, stream=stream, color=True)
+    reporter.banner("Matsubara GF2")
+    shown = stream.getvalue()
+    archived = "\n".join(reporter.lines)
+    assert "\033[92m" in shown
+    assert "▄" in shown
+    assert "\033" not in archived
+    assert "▄" in archived
+
+
+def test_route_card_and_orientation_table() -> None:
+    reporter = Reporter(echo=False)
+    reporter.route_card("#P GF2/cc-pVDZ ERI=DF")
+    reporter.standard_orientation(
+        (("H", 0.0, 0.0, 0.0), ("H", 0.0, 0.0, 0.74)),
+        charge=0,
+        multiplicity=1,
+        units="angstrom",
+    )
+    text = "\n".join(reporter.lines)
+    assert "#P GF2/cc-pVDZ ERI=DF" in text
+    assert "ANGSTROMS" in text
+    assert "0.740000" in text
+    assert "Charge" in text and " = 0" in text
+    assert all(len(line) <= reporter.width for line in reporter.lines if line.startswith("  "))
 
 
 def test_sections_cycles_and_energies_use_fixed_fields() -> None:
@@ -59,12 +94,11 @@ def test_sections_cycles_and_energies_use_fixed_fields() -> None:
     assert "R E F E R E N C E" in text
     assert "Basis functions" in text and " = 10" in text
     assert " = T" in text
-    assert "OUTER CYCLE    2" in text
+    assert "CYCLE    2" in text
     assert "G MIX = OFF" in text
     assert "SIGMA MIX = 0.25" in text
-    assert "MICROITER    4" in text
-    assert "FOCK RMS =    1.200E-05" in text
-    assert "DELTA =    3.200E-07" in text
+    assert "RMS(Fock) =    1.200D-05" in text
+    assert "DELTA =    3.200D-07" in text
     assert "Δ" not in text
     assert format_mix_value(None) == "OFF"
 
@@ -86,6 +120,7 @@ def test_output_archive_matches_the_screen_transcript(tmp_path: Path) -> None:
     assert " ETOT     -1.151011306274\n" in text
     assert " CONV    T\n" in text
     assert "SIGMA MIX" in text or "Sigma mix" in text
+    assert "SCF Done:  E(GF2) =" in text
     assert "NORMAL TERMINATION OF QED-GF2" in text
     assert "HARTREE" in text
     assert text.rstrip().endswith(f"OUTPUT STORED IN  {destination.resolve()}")

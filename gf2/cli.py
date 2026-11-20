@@ -26,10 +26,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "restricted zero-boson-projected Lang-Firsov GF2."
         ),
         epilog=(
-            "Input uses [job], [molecule], [psi4], [gf2], and optional [cavity] "
-            "sections. Frequencies and couplings "
-            "use atomic units. A fixed-width .out transcript is written beside "
-            "the input (override with output = in [job])."
+            "The deck is a route card (#P METHOD/BASIS), a title, "
+            "charge and multiplicity, Cartesian geometry, then keywords. "
+            "$molecule/$rem namelists and the older [section] form are "
+            "also accepted. Frequencies and couplings use atomic units. "
+            "A fixed-width .out transcript is written beside the input "
+            "(override with %output= or output=)."
         ),
     )
     parser.add_argument("input", nargs="?", help="Path to a QED-GF2 .inp file.")
@@ -93,6 +95,17 @@ def _environment() -> dict[str, Any]:
     }
 
 
+def _fallback_route(job: Any, psi4_options: dict[str, Any], gf2_options: Any) -> str:
+    method = str(job.method).upper()
+    if getattr(gf2_options, "spin_mode", "restricted") == "unrestricted" and not method.startswith("U"):
+        method = "U" + method
+    basis = str(psi4_options.get("basis", "NONE"))
+    parts = [f"#P {method}/{basis}", f"ERI={gf2_options.eri_type}"]
+    if "scf_type" in psi4_options:
+        parts.append(f"SCF={psi4_options['scf_type']}")
+    return " ".join(parts).upper()
+
+
 def _gf2_options_dict(opts: Any) -> dict[str, Any]:
     data = {
         field.name: getattr(opts, field.name) for field in fields(opts) if field.name != "extra"
@@ -147,7 +160,15 @@ def _run(args: argparse.Namespace) -> int:
         reporter.kv("Output file", str(output_path))
         reporter.kv("Method", job.method)
         reporter.kv("ERI representation", gf2_options.eri_type)
+        reporter.route_card(job.route or _fallback_route(job, psi4_options, gf2_options))
         reporter.echo_input(path.read_text(encoding="utf-8"))
+        if job.atoms:
+            reporter.standard_orientation(
+                job.atoms,
+                charge=job.charge,
+                multiplicity=job.multiplicity,
+                units=job.units,
+            )
         reporter.options_block("Psi4 options", psi4_options)
         reporter.options_block("GF2 options", _gf2_options_dict(gf2_options))
 
