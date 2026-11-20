@@ -71,6 +71,7 @@ def test_cli_help_version_and_invalid_input() -> None:
     help_result = _run("--help")
     assert help_result.returncode == 0
     assert "Lang-Firsov GF2" in help_result.stdout
+    assert ".out" in help_result.stdout
     version = _run("--version")
     assert version.returncode == 0
     from gf2._version import __version__
@@ -116,3 +117,11 @@ def test_cli_rejects_invalid_cavity_without_traceback(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "positive" in result.stderr
     assert "Traceback" not in result.stderr
+    archived = path.with_suffix(".out")
+    assert archived.is_file()
+    transcript = archived.read_text(encoding="utf-8")
+    assert "Q E D - G F 2" in transcript
+    assert "ABNORMAL TERMINATION" in transcript
+    assert "OUTPUT STORED IN" in transcript
+    assert "$PUNCH" not in transcript
+    assert "╭" not in transcript

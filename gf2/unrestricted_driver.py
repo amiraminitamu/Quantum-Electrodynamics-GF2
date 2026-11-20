@@ -211,6 +211,7 @@ def run_unrestricted_gf2(
     if not psi4_verbose:
         silence_psi4()
     rep = reporter or Reporter(job_name="untitled")
+    rep.ensure_banner("Unrestricted Matsubara GF2")
     psi4.core.set_num_threads(opts.n_threads)
     started = time.time()
     rep.section("Unrestricted UHF reference")
