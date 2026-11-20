@@ -15,6 +15,7 @@ DEFAULTS: dict[str, Any] = {
     "module": "ft",
     "type": "deterministic",
     "eri_type": "df",
+    "spin_mode": "restricted",
     "restricted_mu_strategy": "auto",
     "mu_coupled_damping": 0.5,
     "mu_coupled_max_step": 0.02,
@@ -62,6 +63,7 @@ class GF2Options:
     module: str = "ft"
     type: str = "deterministic"
     eri_type: str = "df"
+    spin_mode: str = "restricted"
     restricted_mu_strategy: str = "auto"
     mu_coupled_damping: float = 0.5
     mu_coupled_max_step: float = 0.02
@@ -133,6 +135,8 @@ class GF2Options:
             raise ValueError("Coupled mu step and charge scale must be positive.")
         if normalised["mu_strict_polish_steps"] < 1:
             raise ValueError("mu_strict_polish_steps must be positive.")
+        if normalised["spin_mode"] not in {"restricted", "unrestricted"}:
+            raise ValueError("spin_mode must be restricted or unrestricted.")
         if normalised["dask"]:
             raise ValueError("Distributed execution is not supported.")
         if normalised["n_ifreq"] <= normalised["mid_pt"]:

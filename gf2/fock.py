@@ -56,6 +56,27 @@ def build_fock_df(H_core: np.ndarray, P: np.ndarray, Qpq: np.ndarray) -> np.ndar
     return H_core + J - 0.5 * K
 
 
+def build_fock_unrestricted(
+    H_core: np.ndarray, P_alpha: np.ndarray, P_beta: np.ndarray, eri: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Spin Focks with a shared Coulomb field and same-spin exchange."""
+    J, _ = build_jk(eri, P_alpha + P_beta)
+    _, Ka = build_jk(eri, P_alpha)
+    _, Kb = build_jk(eri, P_beta)
+    return H_core + J - Ka, H_core + J - Kb
+
+
+def build_fock_unrestricted_df(
+    H_core: np.ndarray, P_alpha: np.ndarray, P_beta: np.ndarray, Qpq: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Factorized unrestricted Focks without a four-index intermediate."""
+    J, _ = build_jk_df(Qpq, P_alpha + P_beta)
+    _, Ka = build_jk_df(Qpq, P_alpha)
+    _, Kb = build_jk_df(Qpq, P_beta)
+    return H_core + J - Ka, H_core + J - Kb
+
+
+
 def core_energy(F: np.ndarray, H_core: np.ndarray, P: np.ndarray, E_nuc: float) -> float:
     "``E_core = (1/2) Tr[(F + h) P] + E_nuc`` (Hartree-Fock-like core energy)."
     return float(np.einsum("pq,pq->", F + H_core, 0.5 * P, optimize=True).real + E_nuc)

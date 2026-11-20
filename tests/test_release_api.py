@@ -15,7 +15,9 @@ from gf2.reporting import Reporter
 
 
 def test_public_api_and_authoritative_version() -> None:
-    assert gf2.__version__ == "0.1.1"
+    from gf2._version import __version__
+
+    assert gf2.__version__ == __version__
     assert gf2.__all__ == [
         "CavityConfiguration",
         "GF2Options",

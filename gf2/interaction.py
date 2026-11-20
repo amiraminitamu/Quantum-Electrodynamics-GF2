@@ -134,6 +134,36 @@ class ElectronInteraction:
             n_workers=n_workers,
         )
 
+    def build_fock_unrestricted(
+        self, core: np.ndarray, alpha: np.ndarray, beta: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return alpha and beta Focks for a spin-independent interaction."""
+        if self.reduced_symmetry:
+            raise NotImplementedError("Unrestricted projected LF Fock is unavailable.")
+        if self.is_factorized:
+            assert self.df is not None
+            return fock_mod.build_fock_unrestricted_df(core, alpha, beta, self.df.f_Qpq)
+        assert self.eri is not None
+        return fock_mod.build_fock_unrestricted(core, alpha, beta, self.eri)
+
+    def build_self_energy_unrestricted(
+        self, alpha: np.ndarray, beta: np.ndarray, n_workers: int | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Second-Born self-energies with explicit internal spin sum."""
+        if self.reduced_symmetry:
+            raise NotImplementedError("Unrestricted projected LF self-energy is unavailable.")
+        if n_workers is None:
+            n_workers = int(os.environ.get("QED_GF2_SIGMA_WORKERS", "1"))
+        if self.is_factorized:
+            assert self.df is not None
+            return self_energy.gf2_self_energy_unrestricted_df(
+                alpha, beta, self.df.Qpq, n_workers=n_workers
+            )
+        assert self.eri is not None
+        return self_energy.gf2_self_energy_unrestricted(
+            alpha, beta, self.eri, n_workers=n_workers
+        )
+
     def metadata(self) -> dict[str, Any]:
         if not self.is_factorized:
             return {

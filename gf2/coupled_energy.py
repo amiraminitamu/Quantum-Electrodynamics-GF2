@@ -141,3 +141,39 @@ def coupled_energy_from_state(
         sigma_g_pi_d_residual=float(E_eb_sigma_g - E_eb_pi_d),
         d_equal_time_diagonal=np.asarray(d_diag, dtype=float),
     )
+
+
+def coupled_energy_unrestricted_from_state(
+    *, static_energy: float, G_alpha: np.ndarray, G_beta: np.ndarray,
+    Sigma_ee_alpha: np.ndarray, Sigma_ee_beta: np.ndarray,
+    Sigma_eb_alpha: np.ndarray, Sigma_eb_beta: np.ndarray,
+    Pi_tau: np.ndarray, D_tau: np.ndarray, D_iv: np.ndarray,
+    D0_iv: np.ndarray, d_itime: np.ndarray, omega: np.ndarray, beta: float,
+) -> CoupledEnergyBreakdown:
+    """Coupled functional with explicit spin traces and shared photons."""
+    from .energy import gf2_correlation_unrestricted
+
+    c_ee = gf2_correlation_unrestricted(
+        G_alpha, G_beta, Sigma_ee_alpha, Sigma_ee_beta, d_itime
+    )
+    c_eb = gf2_correlation_unrestricted(
+        G_alpha, G_beta, Sigma_eb_alpha, Sigma_eb_beta, d_itime
+    )
+    e_eb_sigma_g = 2.0 * c_eb
+    e_eb_pi_d = -pi_d_interaction_integral(Pi_tau, D_tau, d_itime)
+    d_equal = tail_corrected_boson_equal_time(D_iv, D0_iv, omega, beta)
+    d_diag = np.diag(d_equal)
+    coordinate = float(-0.5 * np.sum(np.asarray(omega) * (d_diag + 1.0)))
+    photon = coordinate + 0.5 * e_eb_sigma_g
+    fermionic = float(static_energy + c_ee + c_eb)
+    total = float(static_energy + c_ee + e_eb_sigma_g + photon)
+    return CoupledEnergyBreakdown(
+        static_energy=float(static_energy), ee_correlation=float(c_ee),
+        eb_fermionic_trace=float(c_eb), eb_interaction_sigma_g=float(e_eb_sigma_g),
+        eb_interaction_pi_d=float(e_eb_pi_d), photon_coordinate_term=coordinate,
+        photon_fluctuation_energy=float(photon), fermionic_only_total=fermionic,
+        coupled_correlation=float(total - static_energy), coupled_total=total,
+        coupled_shift_from_fermionic=float(total - fermionic),
+        sigma_g_pi_d_residual=float(e_eb_sigma_g - e_eb_pi_d),
+        d_equal_time_diagonal=np.asarray(d_diag, dtype=float),
+    )

@@ -55,8 +55,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="qed-gf2",
         description=(
-            "Restricted finite-temperature electronic, coherent-state, and "
-            "zero-boson-projected Lang-Firsov GF2."
+            "Finite-temperature restricted/unrestricted electronic and coherent-state GF2; "
+            "restricted zero-boson-projected Lang-Firsov GF2."
         ),
         epilog=(
             "Input uses [job], [molecule], [psi4], [gf2], and optional [cavity] "

@@ -35,6 +35,39 @@ def gf2_correlation(G_tau: np.ndarray, Sigma_tau: np.ndarray, d_itime: np.ndarra
     return -1.0 * _integral_tr_g_sigma(G_tau, Sigma_tau, d_itime)
 
 
+def gf2_correlation_unrestricted(
+    G_alpha: np.ndarray, G_beta: np.ndarray,
+    Sigma_alpha: np.ndarray, Sigma_beta: np.ndarray, weights: np.ndarray,
+) -> float:
+    """Explicit-spin Galitskii-Migdal second-Born energy."""
+    return -0.5 * (
+        _integral_tr_g_sigma(G_alpha, Sigma_alpha, weights)
+        + _integral_tr_g_sigma(G_beta, Sigma_beta, weights)
+    )
+
+
+def mp2_correlation_unrestricted(
+    G_alpha: np.ndarray, G_beta: np.ndarray,
+    Sigma_alpha: np.ndarray, Sigma_beta: np.ndarray, weights: np.ndarray,
+) -> float:
+    """One-shot E2 with the additional perturbative factor of one half."""
+    return 0.5 * gf2_correlation_unrestricted(
+        G_alpha, G_beta, Sigma_alpha, Sigma_beta, weights
+    )
+
+
+def static_energy_unrestricted(
+    h: np.ndarray, F_alpha: np.ndarray, F_beta: np.ndarray,
+    P_alpha: np.ndarray, P_beta: np.ndarray, e_nuc: float,
+) -> float:
+    """UHF-like half trace, excluding any coherent Fock displacement."""
+    return float(
+        0.5 * np.einsum("ij,ji->", h + F_alpha, P_alpha, optimize=True).real
+        + 0.5 * np.einsum("ij,ji->", h + F_beta, P_beta, optimize=True).real
+        + e_nuc
+    )
+
+
 def gf2_correlation_frequency_positive(
     G_iw: np.ndarray,
     Sigma_iw: np.ndarray,

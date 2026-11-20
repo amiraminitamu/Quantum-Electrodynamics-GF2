@@ -103,6 +103,101 @@ def _validated_worker_count(n_workers: int, n_itime: int) -> int:
     return min(workers, n_itime)
 
 
+def _unrestricted_exact_tau(
+    tau: int, external: np.ndarray, internal: np.ndarray, eri: np.ndarray,
+    include_exchange: bool = True,
+) -> np.ndarray:
+    """One internal-spin direct term minus optional same-spin exchange."""
+    gt = external[tau]
+    gi = internal[tau]
+    gb = internal[-tau - 1]
+    x = _contract("pq,pnlj->qnlj", gb, eri, optimize=True)
+    d = _contract("mn,qnlj->mqlj", gi, x, optimize=True)
+    e = _contract("kl,mqlj->kmqj", gt, d, optimize=True)
+    direct = _contract("ikmq,kmqj->ij", eri, e, optimize=True)
+
+    if not include_exchange:
+        return direct
+
+    gb = external[-tau - 1]
+    x = _contract("pq,plnj->qnjl", gb, eri, optimize=True)
+    d = _contract("mn,qnjl->mqjl", gt, x, optimize=True)
+    e = _contract("kl,mqjl->kmqj", gt, d, optimize=True)
+    exchange = _contract("ikmq,kmqj->ij", eri, e, optimize=True)
+    return direct - exchange
+
+
+def _unrestricted_df_tau(
+    tau: int, external: np.ndarray, internal: np.ndarray, qpq: np.ndarray,
+    include_exchange: bool = True,
+) -> np.ndarray:
+    """Factorized direct and exchange, retaining the restricted index order."""
+    gt = external[tau]
+    gi = internal[tau]
+    gb = internal[-tau - 1]
+    r = _contract("pq,Zpn->Zqn", gb, qpq, optimize=True)
+    e = _contract("mn,Qmq->Qnq", gi, qpq, optimize=True)
+    d = _contract("kl,Zlj->kjZ", gt, qpq, optimize=True)
+    x = _contract("Qnq,Zqn->QZ", e, r, optimize=True)
+    f = _contract("Qik,QZ->Zik", qpq, x, optimize=True)
+    direct = _contract("kjZ,Zik->ij", d, f, optimize=True)
+
+    if not include_exchange:
+        return direct
+
+    gb = external[-tau - 1]
+    r = _contract("pq,Zlp->Zlq", gb, qpq, optimize=True)
+    d = _contract("mn,Znj->Zmj", gt, qpq, optimize=True)
+    x = _contract("kl,Qik->Qli", gt, qpq, optimize=True)
+    e = _contract("Qmq,Zmj,Zlq->Qjl", qpq, d, r, optimize=True)
+    exchange = _contract("Qli,Qjl->ij", x, e, optimize=True)
+    return direct - exchange
+
+
+def _unrestricted_pair(
+    alpha: np.ndarray, beta: np.ndarray, interaction: np.ndarray,
+    kernel: object, n_workers: int
+) -> tuple[np.ndarray, np.ndarray]:
+    if alpha.shape != beta.shape or alpha.ndim != 3:
+        raise ValueError("Alpha and beta G(tau) must have equal three-dimensional shapes.")
+    ntime = alpha.shape[0]
+    workers = _validated_worker_count(n_workers, ntime)
+    # Each direct line sums over both internal spins.  Subtract the same-spin
+    # exchange only once: kernel(a,a) already contains that subtraction.
+    def at(tau: int) -> tuple[np.ndarray, np.ndarray]:
+        aa = kernel(tau, alpha, alpha, interaction)
+        bb = kernel(tau, beta, beta, interaction)
+        ab = kernel(tau, alpha, beta, interaction, False)
+        ba = kernel(tau, beta, alpha, interaction, False)
+        return aa + ab, bb + ba
+
+    if workers == 1:
+        values = map(at, range(ntime))
+    else:
+        executor = ThreadPoolExecutor(max_workers=workers)
+        values = executor.map(at, range(ntime))
+    try:
+        pairs = list(values)
+    finally:
+        if workers != 1:
+            executor.shutdown()
+    return np.stack([v[0] for v in pairs]), np.stack([v[1] for v in pairs])
+
+
+def gf2_self_energy_unrestricted(
+    alpha: np.ndarray, beta: np.ndarray, eri: np.ndarray, *, n_workers: int = 1
+) -> tuple[np.ndarray, np.ndarray]:
+    """Spin-orbital second Born using exact AO integrals."""
+    return _unrestricted_pair(alpha, beta, eri, _unrestricted_exact_tau, n_workers)
+
+
+def gf2_self_energy_unrestricted_df(
+    alpha: np.ndarray, beta: np.ndarray, qpq: np.ndarray, *, n_workers: int = 1
+) -> tuple[np.ndarray, np.ndarray]:
+    """Spin-orbital second Born using three-index factors only."""
+    return _unrestricted_pair(alpha, beta, qpq, _unrestricted_df_tau, n_workers)
+
+
 def gf2_self_energy(
     nbf: int,
     G_tau: np.ndarray,

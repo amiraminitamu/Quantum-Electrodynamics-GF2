@@ -29,6 +29,13 @@ class RunSummary:
     interaction_metadata: dict[str, Any] = field(default_factory=dict)
     component_timings_s: dict[str, float] = field(default_factory=dict)
     convergence_diagnostics: dict[str, float] = field(default_factory=dict)
+    spin_mode: str = "restricted"
+    n_alpha: int | None = None
+    n_beta: int | None = None
+    mu_alpha: float | None = None
+    mu_beta: float | None = None
+    trace_p_alpha_s: float | None = None
+    trace_p_beta_s: float | None = None
 
     @property
     def total_gf2(self) -> float:
@@ -51,6 +58,13 @@ class RunSummary:
             "interaction_metadata": dict(self.interaction_metadata),
             "component_timings_s": dict(self.component_timings_s),
             "convergence_diagnostics": dict(self.convergence_diagnostics),
+            "spin_mode": self.spin_mode,
+            "n_alpha": self.n_alpha,
+            "n_beta": self.n_beta,
+            "mu_alpha": self.mu_alpha,
+            "mu_beta": self.mu_beta,
+            "trace_p_alpha_s": self.trace_p_alpha_s,
+            "trace_p_beta_s": self.trace_p_beta_s,
         }
 
 
@@ -178,6 +192,14 @@ class Reporter:
         self.kv("Core GF2 energy", f"{summary.core_gf2:.12f}")
         self.kv("GF2 correlation", f"{summary.corr_gf2:.12f}")
         self.kv("Total GF2 energy", f"{summary.total_gf2:.12f}")
+        if summary.spin_mode == "unrestricted":
+            self.kv("Spin mode", summary.spin_mode)
+            self.kv("N alpha", summary.n_alpha)
+            self.kv("N beta", summary.n_beta)
+            self.kv("mu alpha", f"{summary.mu_alpha:.10f}")
+            self.kv("mu beta", f"{summary.mu_beta:.10f}")
+            self.kv("Tr[P_alpha S]", f"{summary.trace_p_alpha_s:.8f}")
+            self.kv("Tr[P_beta S]", f"{summary.trace_p_beta_s:.8f}")
         if summary.hf_energy is not None:
             self.kv("Reference HF energy", f"{summary.hf_energy:.12f}")
         if summary.mp2_psi4 is not None and summary.mp2_gf2_estimate is not None:
