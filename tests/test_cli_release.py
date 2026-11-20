@@ -36,34 +36,27 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _input(maxiter: int = 30, *, cs: bool = True) -> str:
-    method = "cs-gf2" if cs else "gf2"
-    cavity = "\n[cavity]\nunits = atomic\nmode1 = 0.10, 0.01, 0, 0, 1\n" if cs else ""
-    return f"""[job]
-name = CLI smoke
-[molecule]
-charge = 0
-multiplicity = 1
-units = bohr
-symmetry = c1
+    method = "CS-GF2" if cs else "GF2"
+    cavity = "\nmode1 = 0.10, 0.01, 0, 0, 1\n" if cs else ""
+    return f"""%nproc=1
+#P {method}/STO-3G ERI=STD SCF=PK SYMMETRY=C1 UNITS=BOHR
+
+CLI smoke
+
+0 1
 H 0 0 -0.6991986661
 H 0 0  0.6991986661
-[psi4]
-basis = sto-3g
-scf_type = pk
-[gf2]
-method = {method}
-eri_type = std
-beta = 20
-n_ifreq = 30
-mid_pt = 10
-n_ifreq_full = 200
-n_itime = 30
-n_poly = 20
-mp2 = false
-n_threads = 1
-n_fit_pts = 1000
-maxiter_gf_diis = {maxiter}
-maxiter_fock_diis = 8
+
+beta 20
+n_ifreq 30
+mid_pt 10
+n_ifreq_full 200
+n_itime 30
+n_poly 20
+mp2 false
+n_fit_pts 1000
+maxiter_gf_diis {maxiter}
+maxiter_fock_diis 8
 {cavity}"""
 
 
@@ -71,6 +64,7 @@ def test_cli_help_version_and_invalid_input() -> None:
     help_result = _run("--help")
     assert help_result.returncode == 0
     assert "Lang-Firsov GF2" in help_result.stdout
+    assert ".out" in help_result.stdout
     version = _run("--version")
     assert version.returncode == 0
     from gf2._version import __version__
@@ -116,3 +110,11 @@ def test_cli_rejects_invalid_cavity_without_traceback(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "positive" in result.stderr
     assert "Traceback" not in result.stderr
+    archived = path.with_suffix(".out")
+    assert archived.is_file()
+    transcript = archived.read_text(encoding="utf-8")
+    assert "Q E D - G F 2" in transcript
+    assert "ABNORMAL TERMINATION" in transcript
+    assert "OUTPUT STORED IN" in transcript
+    assert "$PUNCH" not in transcript
+    assert "╭" not in transcript

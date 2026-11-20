@@ -314,8 +314,8 @@ def tune_newton(
                 )
             else:
                 print(
-                    "        Poor initial mu guess - reseeding with linear fit "
-                    f"(delta_ne={delta_ne:.3e})",
+                    " !!!  poor initial mu "
+                    f"(delta Ne = {delta_ne:.3e}); reseeding with linear fit",
                     flush=True,
                 )
             mu = _linear_fit_guess(

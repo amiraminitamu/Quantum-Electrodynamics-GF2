@@ -118,15 +118,12 @@ def print_mp2_comparison(
     """Print Psi4 MP2 and the GF2 one-shot MP2 estimate side by side."""
     diff = gf2_estimate - psi4_corr
     rel = diff / psi4_corr if psi4_corr != 0.0 else float("nan")
-    if reporter is not None:
-        reporter.section("MP2 comparison")
-        reporter.kv("Psi4 (canonical)", f"{psi4_corr: .12f}")
-        reporter.kv("GF2 estimate (G0)", f"{gf2_estimate: .12f}")
-        reporter.kv("Difference", f"{diff: .12f}")
-        reporter.kv("Relative", f"{rel:.6e}")
-        return
-    print("  MP2 comparison", flush=True)
-    print(f"    Psi4 (canonical)     {psi4_corr: .12f}", flush=True)
-    print(f"    GF2 estimate (G0)  {gf2_estimate: .12f}", flush=True)
-    print(f"    Difference         {diff: .12f}", flush=True)
-    print(f"    Relative           {rel:.6e}", flush=True)
+    if reporter is None:
+        from .reporting import Reporter
+
+        reporter = Reporter()
+    reporter.section("MP2 comparison")
+    reporter.kv("Psi4 (canonical)", f"{psi4_corr:20.12f} HARTREE")
+    reporter.kv("GF2 estimate (G0)", f"{gf2_estimate:20.12f} HARTREE")
+    reporter.kv("Difference", f"{diff:20.12f} HARTREE")
+    reporter.kv("Relative", f"{rel:12.6E}")
