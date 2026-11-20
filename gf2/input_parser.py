@@ -17,12 +17,17 @@ from .qed import CavityConfiguration, PhotonMode
 
 @dataclass
 class JobConfig:
-    """Metadata from the ``[job]`` block."""
+    """Metadata from the job title, a ``%`` line, or a ``[job]`` block."""
 
     name: str
     output_file: str | None = None
     method: str = "gf2"
     cavity: CavityConfiguration | None = None
+    route: str | None = None
+    charge: int = 0
+    multiplicity: int = 1
+    units: str = "angstrom"
+    atoms: tuple[tuple[str, float, float, float], ...] = ()
 
 
 _SECTION_HEADER = re.compile(
@@ -203,17 +208,43 @@ def _parse_cavity(body: str) -> CavityConfiguration:
     return CavityConfiguration(modes)
 
 
+def _geometry_from_body(
+    body: str,
+) -> tuple[int, int, str, tuple[tuple[str, float, float, float], ...]]:
+    kv = _parse_kv_lines(body)
+    atoms: list[tuple[str, float, float, float]] = []
+    for raw in body.splitlines():
+        match = _ATOM_LINE.match(raw.strip())
+        if match:
+            atoms.append(
+                (match["sym"], float(match["x"]), float(match["y"]), float(match["z"]))
+            )
+    return (
+        int(kv.get("charge", 0)),
+        int(kv.get("multiplicity", 1)),
+        str(kv.get("units", "angstrom")),
+        tuple(atoms),
+    )
+
+
 def parse_input_text(
     text: str,
     *,
     input_path: str | Path | None = None,
 ) -> tuple[JobConfig, psi4.core.Molecule, dict[str, Any], GF2Options]:
-    """Parse input text and return job metadata plus calculation settings."""
-    text = _strip_comments(text)
-    if _uses_section_layout(text):
-        blocks = _parse_sections(text)
+    """Parse a classic deck or an older section deck."""
+    from .classic_input import classic_blocks
+
+    route: str | None = None
+    translated = classic_blocks(text)
+    if translated is not None:
+        blocks, route = translated
     else:
-        blocks = _parse_legacy_blocks(text)
+        stripped = _strip_comments(text)
+        if _uses_section_layout(stripped):
+            blocks = _parse_sections(stripped)
+        else:
+            blocks = _parse_legacy_blocks(stripped)
 
     unknown = set(blocks) - {"job", "molecule", "psi4", "gf2", "cavity"}
     if unknown:
@@ -238,12 +269,18 @@ def parse_input_text(
     cavity = _parse_cavity(blocks["cavity"]) if "cavity" in blocks else None
     coupled = method in {"cs-gf2", "lf-gf2"}
     if coupled != (cavity is not None):
-        raise ValueError("A [cavity] section is required exactly for method=cs-gf2 or lf-gf2.")
+        raise ValueError("A cavity is required exactly for method=cs-gf2 or lf-gf2.")
 
+    charge, multiplicity, units, atoms = _geometry_from_body(blocks["molecule"])
     job = replace(
         job,
         method=method,
         cavity=cavity,
+        route=route,
+        charge=charge,
+        multiplicity=multiplicity,
+        units=units,
+        atoms=atoms,
     )
     gf2_opts = GF2Options.from_mapping(gf2_values)
     return job, mol, psi4_opts, gf2_opts

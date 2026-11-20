@@ -1,36 +1,24 @@
-# Polar LiH+ doublet with one cavity mode.
-[job]
-name = LiH+ unrestricted CS-GF2
+! Polar LiH+ doublet with one cavity mode.
+%nproc=1
+#P UCS-GF2/STO-3G ERI=DF SCF=PK SYMMETRY=C1 UNITS=ANGSTROM
 
-[molecule]
-charge = 1
-multiplicity = 2
-symmetry = c1
+LiH+ unrestricted CS-GF2
+
+1 2
 Li 0.0 0.0 0.0
 H  0.0 0.0 1.6
 
-[psi4]
-basis = sto-3g
-scf_type = pk
-
-[gf2]
-spin_mode = unrestricted
-method = cs-gf2
-eri_type = df
-se_fit_basis = cc-pvdz-ri
-fock_fit_basis = cc-pvdz-ri
-beta = 10
-n_ifreq = 32
-mid_pt = 10
-n_ifreq_full = 512
-n_itime = 32
-n_poly = 12
-g_mix = 0.5
-sigma_mix = 0.5
-maxiter_gf_diis = 120
-maxiter_fock_diis = 20
-n_threads = 1
-mp2 = false
-
-[cavity]
+se_fit_basis      cc-pvdz-ri
+fock_fit_basis    cc-pvdz-ri
+beta              10
+n_ifreq           32
+mid_pt            10
+n_ifreq_full      512
+n_itime           32
+n_poly            12
+g_mix             0.5
+sigma_mix         0.5
+maxiter_gf_diis   120
+maxiter_fock_diis 20
+mp2               false
 mode1 = 0.5, 0.02, 0, 0, 1

@@ -10,6 +10,7 @@ overwritten on each run and closed with a ``$PUNCH`` record.
 
 from __future__ import annotations
 
+import os
 import platform
 import sys
 from dataclasses import dataclass, field
@@ -142,6 +143,43 @@ def _spaced_heading(title: str) -> str:
     return "  ".join(space_token(word) for word in words)
 
 
+_GF2_MARK = (
+    "    ▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄",
+    "  ▄▀░▒▒▓▓▓█▐  ▀▄░▒▒▒▓▓▓█▐▄░▒▓█▓▓▒▒░▀▄",
+    " ▐░░▄▀▀▀▀▀▀▀    ▐░▒▄▀▀▀▄▀ ▀▀▀▀▀▀▀▄░░▐",
+    " ▌▓ ▌▄▄▄▄▄▄▄▄   ▐▓ ▐▄▄▄     ▄▀▀▀▀   ▌",
+    "▐▓▒▐ ▐▓▒░▓▓██   ▌▒▓▓▒░▌   ▄▀▒▓▓█▄▄▄▀",
+    " ▐▒░▌▐▀▀▓░░▒▓   ▌░ ▐▀▀   ▐▒░░▒▐▀",
+    " ▐░░▀▄▄▄▒░ ░▐   ▌  ▀▄    ▓  ░ ▀▄▄▄▄▄",
+    "  ▀▄░░ ▄▄   ▐▌▄▀    ▀▄   ▀▓▄▄  ░░▒██▌",
+    "    ▀▀▀▀ ▀▀▀▀  ▀▀▀▀▀▀       ▀▀▀▀▀▀▀▀▀",
+)
+
+_ATOMIC_NUMBERS = {
+    symbol: number
+    for number, symbol in enumerate(
+        (
+            "X H HE LI BE B C N O F NE NA MG AL SI P S CL AR K CA SC TI V CR MN "
+            "FE CO NI CU ZN GA GE AS SE BR KR"
+        ).split()
+    )
+}
+
+
+def _tty_color(stream: TextIO) -> bool:
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("TERM") == "dumb":
+        return False
+    isatty = getattr(stream, "isatty", None)
+    return bool(isatty and isatty())
+
+
+def _fortran_float(value: float, width: int = 12, precision: int = 3) -> str:
+    """Fortran double-precision field, with a D exponent."""
+    return f"{value:{width}.{precision}E}".replace("E", "D")
+
+
 def _format_printed_value(value: Any) -> str:
     if isinstance(value, bool):
         return "T" if value else "F"
@@ -160,21 +198,23 @@ class Reporter:
         echo: bool = True,
         width: int = 80,
         stream: TextIO | None = None,
+        color: bool | None = None,
     ) -> None:
         self.job_name = job_name
         self.echo = echo
         self.width = max(int(width), 72)
         self.stream = sys.stdout if stream is None else stream
+        self.color = _tty_color(self.stream) if color is None else color
         self.lines: list[str] = []
         self._sections: set[str] = set()
         self._punched = False
         self._terminated = False
         self._started = datetime.now().astimezone()
 
-    def _emit(self, text: str = "") -> None:
+    def _emit(self, text: str = "", *, display: str | None = None) -> None:
         self.lines.append(text)
         if self.echo:
-            print(text, file=self.stream, flush=True)
+            print(text if display is None else display, file=self.stream, flush=True)
 
     def _rule(self, char: str) -> str:
         return char * self.width
@@ -210,6 +250,15 @@ class Reporter:
                 "",
             ]
         )
+        self._emit("")
+        self._emit("THIS IS".center(self.width))
+        self._emit("")
+        for row in _GF2_MARK:
+            plain = row.center(self.width) if len(row) < self.width else row
+            if self.color:
+                self._emit(plain, display=f"\033[92m{plain}\033[0m")
+            else:
+                self._emit(plain)
         self._emit("")
         self._emit(f"  EXECUTION BEGUN  {_stamp(self._started)}")
         self.kv("Host name", platform.node() or "UNKNOWN")
@@ -253,6 +302,49 @@ class Reporter:
     def warn(self, text: str) -> None:
         self._emit(f" !!!  {text}")
 
+    def route_card(self, route: str) -> None:
+        """Echo the route card."""
+        text = " ".join(str(route).split())
+        if not text.startswith("#"):
+            text = "#P " + text
+        self.section("Route card")
+        words = text.split()
+        current = ""
+        for word in words:
+            piece = word if not current else f"{current} {word}"
+            if current and len(piece) > self.width - 2:
+                self._emit(f"  {current}")
+                current = word
+            else:
+                current = piece
+        if current:
+            self._emit(f"  {current}")
+
+    def standard_orientation(
+        self,
+        atoms: list[tuple[str, float, float, float]] | tuple[tuple[str, float, float, float], ...],
+        *,
+        charge: int,
+        multiplicity: int,
+        units: str = "angstrom",
+    ) -> None:
+        """Print the input geometry in a fixed Cartesian table."""
+        label = "BOHR" if str(units).strip().lower() in {"bohr", "au", "a.u."} else "ANGSTROMS"
+        self.section("Input orientation")
+        self.kv("Coordinate units", label)
+        self._emit("  CENTER ATOMIC ATOMIC               COORDINATES")
+        self._emit("  NUMBER NUMBER SYMBOL       X            Y            Z")
+        self._emit("  " + "-" * 64)
+        for number, (symbol, x_coord, y_coord, z_coord) in enumerate(atoms, start=1):
+            atomic_number = _ATOMIC_NUMBERS.get(symbol.upper(), 0)
+            self._emit(
+                f"  {number:6d} {atomic_number:6d}   {symbol:>2}"
+                f"   {x_coord:12.6f} {y_coord:12.6f} {z_coord:12.6f}"
+            )
+        self._emit("  " + "-" * 64)
+        self.kv("Charge", int(charge))
+        self.kv("Multiplicity", int(multiplicity))
+
     def echo_input(self, text: str) -> None:
         """Echo the input deck verbatim, as a Fortran program echoes its cards."""
         self.section("Input deck")
@@ -277,22 +369,21 @@ class Reporter:
         sigma_mix: float | None = None,
     ) -> None:
         self._emit("")
-        self._emit(self._rule("="))
+        self._emit(self._rule("-"))
         self._emit(
-            f"  OUTER CYCLE {n:4d}"
-            f"      G MIX = {format_mix_value(g_mix):<8}"
+            f"  CYCLE {n:4d}            G MIX = {format_mix_value(g_mix):<8}"
             f"SIGMA MIX = {format_mix_value(sigma_mix)}"
         )
-        self._emit(self._rule("="))
+        self._emit(self._rule("-"))
 
     def inner_iter(self, n: int, fock_rms: float) -> None:
-        self._emit(f"      MICROITER {n:4d}       FOCK RMS = {fock_rms:12.3E}")
+        self._emit(f"  Iter {n:4d}   RMS(Fock) = {_fortran_float(fock_rms)}")
 
     def energy_row(self, label: str, value: float, delta: float | None = None) -> None:
         name = " ".join(str(label).upper().split())
         text = f"  {name:<22}{value:16.12f}"
         if delta is not None:
-            text += f"    DELTA = {delta:12.3E}"
+            text += f"    DELTA = {_fortran_float(delta)}"
         self._emit(text)
 
     def _punch_lines(self, summary: RunSummary) -> list[str]:
@@ -401,8 +492,13 @@ class Reporter:
         for name, seconds in summary.component_timings_s.items():
             self.kv(f"Time {name}", f"{seconds:12.3f} SECONDS")
         for name, value in summary.convergence_diagnostics.items():
-            self.kv(f"Residual {name}", f"{value:12.3E}")
+            self.kv(f"Residual {name}", _fortran_float(value))
         self.kv("Wall time", f"{summary.wall_time_s:12.2f} SECONDS")
+        done = f"SCF Done:  E(GF2) = {summary.total_gf2:20.12f} a.u."
+        self._emit("")
+        self._emit(self._rule("*"))
+        self._emit(done.center(self.width))
+        self._emit(self._rule("*"))
         self._emit_punch(summary)
         self._emit_termination(summary)
 
