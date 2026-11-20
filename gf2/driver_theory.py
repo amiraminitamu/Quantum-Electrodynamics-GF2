@@ -318,6 +318,7 @@ def run_gf2(
     if is_lf and mu_strategy == "coupled":
         raise ValueError("Coupled chemical-potential iteration is not validated for LF-GF2.")
     rep = reporter or Reporter(job_name="untitled")
+    rep.ensure_banner("Matsubara GF2")
     if psi4 is not None:
         psi4.core.set_num_threads(opts.n_threads)
 
