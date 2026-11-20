@@ -35,6 +35,7 @@ mode1 = 0.10, 0.01, 0, 0, 1
     assert "Li 0.0 0.0 0.0" in blocks["molecule"]
     assert "method = gf2" in blocks["gf2"]
     assert "spin_mode = unrestricted" in blocks["gf2"]
+    assert "eri_type = df" in blocks["gf2"]
     assert "n_threads = 2" in blocks["gf2"]
     assert "beta = 5" in blocks["gf2"]
     assert "basis = cc-pvdz" in blocks["psi4"]

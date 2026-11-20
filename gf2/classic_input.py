@@ -288,6 +288,8 @@ def _store(bucket: _Bucket, key: str, value: str) -> None:
     if name.startswith("mode"):
         bucket.modes.append((name, raw))
         return
+    if name in {"eri_type", "restricted_mu_strategy", "fock_diis_on_off"}:
+        raw = raw.lower()
     bucket.gf2[name] = raw
 
 
