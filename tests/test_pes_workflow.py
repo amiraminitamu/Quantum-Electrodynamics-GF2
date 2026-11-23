@@ -55,6 +55,50 @@ def test_render_diatomic_input_rejects_non_diatomic() -> None:
         render_diatomic_input(template, 1.0)
 
 
+def test_render_route_deck_updates_geometry_and_method() -> None:
+    template = """#P GF2/STO-3G ERI=STD
+
+LiH test
+
+0 1
+Li 0.0 0.0 0.0
+H  0.0 0.0 1.600000
+
+beta 200
+"""
+    text = render_diatomic_input(
+        template,
+        1.55,
+        method="cs-gf2",
+        job_name="CS-GF2 PES R=1.55000",
+    )
+    assert "CS-GF2/STO-3G" in text
+    assert "CS-GF2 PES R=1.55000" in text
+    assert "H 0.000000000000 0.000000000000 1.550000000000" in text
+    assert "beta 200" in text
+
+
+def test_render_route_deck_keeps_a_gf2_namelist() -> None:
+    template = """#P GF2/STO-3G ERI=STD
+
+LiH test
+
+0 1
+Li 0.0 0.0 0.0
+H  0.0 0.0 1.600000
+
+$GF2
+ BETA = 200
+ THRESH_ENERGY = 1.0D-6
+$END
+"""
+    text = render_diatomic_input(template, 1.55, method="lf-gf2")
+    assert "LF-GF2/STO-3G" in text
+    assert "$GF2" in text
+    assert "BETA = 200" in text
+    assert "H 0.000000000000 0.000000000000 1.550000000000" in text
+
+
 def test_distance_tag() -> None:
     assert distance_tag(1.6) == "1p60000"
     with pytest.raises(ValueError):

@@ -36,7 +36,7 @@ from .qed import (
     polarization_tau_unrestricted,
     sigma_eb_tau,
 )
-from .reporting import Reporter, RunSummary
+from .reporting import Reporter, RunSummary, d_real
 from .utils import linear_mix, nelec_from_density
 
 SPINS = ("alpha", "beta")
@@ -211,6 +211,7 @@ def run_unrestricted_gf2(
     if not psi4_verbose:
         silence_psi4()
     rep = reporter or Reporter(job_name="untitled")
+    rep.ensure_banner("Unrestricted Matsubara GF2")
     psi4.core.set_num_threads(opts.n_threads)
     started = time.time()
     rep.section("Unrestricted UHF reference")
@@ -337,7 +338,8 @@ def run_unrestricted_gf2(
                 fock_rms[s] = float(np.sqrt(np.mean((F[s] - F_prev[s]) ** 2)))
                 F_prev[s] = F[s].copy()
             rep.detail(
-                f"inner {inner + 1}: F alpha {fock_rms['alpha']:.3e}; F beta {fock_rms['beta']:.3e}"
+                f"Iter {inner + 1:4d}   RMS(F alpha) = {d_real(fock_rms['alpha']):>12}"
+                f"   RMS(F beta) = {d_real(fock_rms['beta']):>12}"
             )
             if opts.fock_diis_on_off == "off" or max(fock_rms.values()) < opts.thresh_fock_rms:
                 break
@@ -509,6 +511,10 @@ def run_unrestricted_gf2(
             diagnostic_callback(f"iteration_{outer + 1}", payload)
         rep.energy_row("Static/core", core, abs(core - core_old))
         rep.energy_row("Total GF2", total, residuals["energy"])
+        rep.kv("mu alpha", f"{float(mu['alpha']):.10f}")
+        rep.kv("mu beta", f"{float(mu['beta']):.10f}")
+        rep.kv("N alpha", f"{float(nelec_from_density(P['alpha'], S)):.8f}")
+        rep.kv("N beta", f"{float(nelec_from_density(P['beta'], S)):.8f}")
         for s in SPINS:
             P_prev[s] = P[s].copy()
             sigma_ee_prev[s] = sigma_ee_new[s].copy()
@@ -543,7 +549,10 @@ def run_unrestricted_gf2(
     for s in SPINS:
         rep.kv(f"Tr[P_{s} S]", f"{nelec_from_density(P[s], S):.8f}")
     rep.kv("Total electrons", f"{nelec_from_density(P['alpha'] + P['beta'], S):.8f}")
-    rep.kv("||P_alpha - P_beta||", f"{np.linalg.norm(P['alpha'] - P['beta']):.8e}")
+    rep.kv(
+        "||P_alpha - P_beta||",
+        d_real(float(np.linalg.norm(P["alpha"] - P["beta"])), 8),
+    )
     metadata = interaction.metadata()
     metadata.update(
         {

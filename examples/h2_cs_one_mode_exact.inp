@@ -1,0 +1,27 @@
+! H2 / STO-3G, one cavity mode, exact integrals. Frequency and coupling are atomic units.
+%NPROC=1
+#P CS-GF2/STO-3G ERI=STD SCF=PK SYMMETRY=C1 UNITS=BOHR
+
+H2 one-mode coherent-state GF2
+
+0 1
+H   0.0   0.0  -0.6991986661
+H   0.0   0.0   0.6991986661
+
+$GF2
+ BETA              = 20
+ N_IFREQ           = 30
+ MID_PT            = 10
+ N_IFREQ_FULL      = 200
+ N_ITIME           = 30
+ N_POLY            = 20
+ MAXITER_GF_DIIS   = 30
+ MAXITER_FOCK_DIIS = 8
+ N_FIT_PTS         = 1000
+ CS_HF_MIX         = 0.2
+ MP2               = OFF
+$END
+
+$CAVITY
+ MODE1 = 0.10, 0.01, 0.0, 0.0, 1.0
+$END

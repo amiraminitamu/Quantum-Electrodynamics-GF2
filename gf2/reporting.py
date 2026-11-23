@@ -1,13 +1,40 @@
 # Authors: Amirhosein Amini, Jaime Cerda, Leopoldo Mejía, Arkajit Mandal.
 # 2026. Licensed under the MIT License. See LICENSE.
-"""Terminal and file reporting for GF2 runs (presentation only)."""
+"""Fixed-width terminal log and ``.out`` archive for GF2 runs.
+
+Presentation only. Numeric results are formatted, never recomputed.
+The screen transcript and the output file are the same text: an
+80-column log, overwritten on each run and closed with a ``$PUNCH``
+record.
+"""
 
 from __future__ import annotations
 
+import os
+import platform
+import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, TextIO
+
+from ._version import __version__
+
+_MONTHS = (
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
+)
+_DAYS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 
 
 @dataclass
@@ -69,103 +96,291 @@ class RunSummary:
 
 
 def format_mix_value(alpha: float | None) -> str:
-    """Human-readable linear-mixing factor (``None`` → ``off``)."""
+    """Linear-mixing factor as printed in the log (``None`` → ``OFF``)."""
     if alpha is None:
-        return "off"
+        return "OFF"
     return f"{alpha:g}"
 
 
+def resolve_output_path(input_file: str | Path, requested: str | None = None) -> Path:
+    """Return the ``.out`` archive path for a calculation.
+
+    An explicit ``output`` / ``output_file`` entry is used as given.
+    Otherwise the archive sits beside the input, with the suffix replaced
+    by ``.out`` (``h2.inp`` → ``h2.out``). A path that would overwrite the
+    input itself gains an extra ``.out`` suffix.
+    """
+    source = Path(input_file).expanduser()
+    if requested is not None and str(requested).strip():
+        return Path(str(requested).strip()).expanduser()
+    dest = source.with_suffix(".out")
+    try:
+        same_file = dest.resolve() == source.resolve()
+    except OSError:
+        same_file = dest == source
+    if same_file:
+        return source.with_name(source.name + ".out")
+    return dest
+
+
+def _stamp(when: datetime) -> str:
+    local = when.astimezone()
+    zone = local.tzname() or "UTC"
+    return (
+        f"{_DAYS[local.weekday()]} {local.day:02d}-{_MONTHS[local.month - 1]}-{local.year}"
+        f"  AT  {local.hour:02d}:{local.minute:02d}:{local.second:02d} {zone}"
+    )
+
+
+def _spaced_heading(title: str) -> str:
+    words = str(title).upper().split()
+
+    def space_token(token: str) -> str:
+        if any(character.isdigit() for character in token):
+            return token
+        return " ".join(token)
+
+    return "  ".join(space_token(word) for word in words)
+
+
+_GF2_MARK = (
+    "    ▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄",
+    "  ▄▀░▒▒▓▓▓█▐  ▀▄░▒▒▒▓▓▓█▐▄░▒▓█▓▓▒▒░▀▄",
+    " ▐░░▄▀▀▀▀▀▀▀    ▐░▒▄▀▀▀▄▀ ▀▀▀▀▀▀▀▄░░▐",
+    " ▌▓ ▌▄▄▄▄▄▄▄▄   ▐▓ ▐▄▄▄     ▄▀▀▀▀   ▌",
+    "▐▓▒▐ ▐▓▒░▓▓██   ▌▒▓▓▒░▌   ▄▀▒▓▓█▄▄▄▀",
+    " ▐▒░▌▐▀▀▓░░▒▓   ▌░ ▐▀▀   ▐▒░░▒▐▀",
+    " ▐░░▀▄▄▄▒░ ░▐   ▌  ▀▄    ▓  ░ ▀▄▄▄▄▄",
+    "  ▀▄░░ ▄▄   ▐▌▄▀    ▀▄   ▀▓▄▄  ░░▒██▌",
+    "    ▀▀▀▀ ▀▀▀▀  ▀▀▀▀▀▀       ▀▀▀▀▀▀▀▀▀",
+)
+
+_ATOMIC_NUMBERS = {
+    symbol: number
+    for number, symbol in enumerate(
+        (
+            "X H HE LI BE B C N O F NE NA MG AL SI P S CL AR K CA SC TI V CR MN "
+            "FE CO NI CU ZN GA GE AS SE BR KR"
+        ).split()
+    )
+}
+
+
+def _tty_color(stream: TextIO) -> bool:
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("TERM") == "dumb":
+        return False
+    isatty = getattr(stream, "isatty", None)
+    return bool(isatty and isatty())
+
+
+def _d_float(value: float, width: int = 12, precision: int = 3) -> str:
+    """Double-precision field with a D exponent."""
+    return f"{value:{width}.{precision}E}".replace("E", "D")
+
+
+def d_real(value: float, precision: int = 3) -> str:
+    """Compact real with a D exponent and no leading blank."""
+    return f"{value:.{precision}e}".replace("e", "D")
+
+
+def _control_text(value: Any) -> str:
+    """One resolved control value, as a namelist record would print it."""
+    if isinstance(value, bool):
+        return "ON" if value else "OFF"
+    if value is None:
+        return "NONE"
+    if isinstance(value, float):
+        if value == 0.0 or 1.0e-2 <= abs(value) < 1.0e4:
+            return f"{value:.8f}"
+        return f"{value:.6E}".replace("E", "D")
+    if isinstance(value, str) and "/" not in value and "\\" not in value:
+        return value.upper()
+    return str(value)
+
+
+def _format_printed_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "T" if value else "F"
+    if value is None:
+        return "NONE"
+    return str(value)
+
+
 class Reporter:
-    """Buffered, consistently styled log lines for stdout and optional files."""
+    """80-column log buffer mirrored to a stream and, later, a ``.out`` file."""
 
     def __init__(
         self,
         *,
         job_name: str = "untitled",
         echo: bool = True,
-        width: int = 72,
+        width: int = 80,
+        stream: TextIO | None = None,
+        color: bool | None = None,
     ) -> None:
         self.job_name = job_name
         self.echo = echo
-        self.width = width
+        self.width = max(int(width), 72)
+        self.stream = sys.stdout if stream is None else stream
+        self.color = _tty_color(self.stream) if color is None else color
         self.lines: list[str] = []
-        self._started = datetime.now(timezone.utc)
+        self._sections: set[str] = set()
+        self._punched = False
+        self._terminated = False
+        self._started = datetime.now().astimezone()
 
-    def _emit(self, text: str = "", *, to_console: bool = True) -> None:
+    def _emit(self, text: str = "", *, display: str | None = None) -> None:
         self.lines.append(text)
-        if self.echo and to_console:
-            print(text, flush=True)
+        if self.echo:
+            print(text if display is None else display, file=self.stream, flush=True)
+
+    def _rule(self, char: str) -> str:
+        return char * self.width
+
+    def _star_box(self, rows: list[str]) -> None:
+        inner = self.width - 4
+        self._emit(self._rule("*"))
+        for row in rows:
+            text = row[:inner]
+            self._emit(f"* {text.center(inner)} *")
+        self._emit(self._rule("*"))
+
+    def ensure_banner(self, subtitle: str = "Matsubara GF2") -> None:
+        """Print the program header once, when the log is still empty."""
+        if not self.lines:
+            self.banner(subtitle)
 
     def banner(self, subtitle: str = "Matsubara GF2") -> None:
-        """Print a polished GF2 startup banner."""
-        width = max(self.width, 40)
-        inner_width = width - 2
-        content_width = inner_width - 2
-
-        def truncate(text: str) -> str:
-            text = str(text)
-
-            if len(text) <= content_width:
-                return text
-
-            if content_width <= 1:
-                return text[:content_width]
-
-            return text[: content_width - 1] + "…"
-
-        def row(text: str = "", alignment: str = "left") -> str:
-            text = truncate(text)
-
-            if alignment == "center":
-                content = text.center(content_width)
-            elif alignment == "right":
-                content = text.rjust(content_width)
+        """Print the QED-GF2 program header."""
+        self._star_box(
+            [
+                "",
+                "Q E D - G F 2",
+                f"VERSION {__version__}",
+                "",
+                "MANY-BODY GREEN'S FUNCTION THEORY",
+                "FOR AB INITIO MOLECULAR QUANTUM ELECTRODYNAMICS",
+                "",
+                " ".join(str(subtitle).upper().split()),
+                "",
+                "A. AMINI    J. CERDA    L. MEJIA    A. MANDAL",
+                "PLEASE CITE ARXIV:2606.26076",
+                "",
+            ]
+        )
+        self._emit("")
+        self._emit("THIS IS".center(self.width))
+        self._emit("")
+        for row in _GF2_MARK:
+            plain = row.center(self.width) if len(row) < self.width else row
+            if self.color:
+                self._emit(plain, display=f"\033[92m{plain}\033[0m")
             else:
-                content = text.ljust(content_width)
-
-            return f"│ {content} │"
-
-        title = "G F 2"
-
-        self._emit("╭" + "─" * inner_width + "╮")
-        self._emit(row(title, alignment="center"))
-        self._emit(row(subtitle, alignment="center"))
-        self._emit("├" + "─" * inner_width + "┤")
-        self._emit(row(f"Job  ·  {self.job_name}"))
-        self._emit("╰" + "─" * inner_width + "╯")
-        self._emit()
+                self._emit(plain)
+        self._emit("")
+        self._emit(f"  EXECUTION BEGUN  {_stamp(self._started)}")
+        self.kv("Host name", platform.node() or "UNKNOWN")
+        self.kv("Job name", self.job_name)
+        self._emit("")
 
     def section(self, title: str) -> None:
-        self._emit()
-        bar = "-" * min(len(title) + 4, self.width)
-        self._emit(bar)
-        self._emit(f"  {title}")
-        self._emit(bar)
+        key = " ".join(str(title).upper().split())
+        self._sections.add(key)
+        heading = _spaced_heading(title)
+        if len(heading) > self.width - 2:
+            heading = key
+        self._emit("")
+        self._emit(self._rule("-"))
+        self._emit(heading.center(self.width))
+        self._emit(self._rule("-"))
 
     def line(self, text: str = "") -> None:
         self._emit(text)
 
     def kv(self, label: str, value: Any, *, indent: int = 2) -> None:
+        name = " ".join(str(label).split())
+        text = _format_printed_value(value)
         pad = " " * indent
-        self._emit(f"{pad}{label:<26} {value}")
+        field_width = 42
+        if len(name) > field_width:
+            self._emit(f"{pad}{name}")
+            self._emit(f"{pad}{'':<{field_width}} = {text}")
+            return
+        self._emit(f"{pad}{name:<{field_width}} = {text}")
 
     def detail(self, text: str) -> None:
-        self._emit(f"    {text}")
+        self._emit(f"       {text}")
 
     def step(self, text: str) -> None:
-        self._emit(f"  > {text}")
+        self._emit(f"  ... {text}")
 
     def ok(self, text: str) -> None:
-        self._emit(f"  * {text}")
+        self._emit(f" **** {text}")
 
     def warn(self, text: str) -> None:
-        self._emit(f"  ! {text}")
+        self._emit(f" !!!  {text}")
 
-    def mixing_kv(self, g_mix: float | None, sigma_mix: float | None, *, indent: int = 4) -> None:
+    def route_card(self, route: str) -> None:
+        """Echo the route card."""
+        text = " ".join(str(route).split())
+        if not text.startswith("#"):
+            text = "#P " + text
+        self.section("Route card")
+        words = text.split()
+        current = ""
+        for word in words:
+            piece = word if not current else f"{current} {word}"
+            if current and len(piece) > self.width - 2:
+                self._emit(f"  {current}")
+                current = word
+            else:
+                current = piece
+        if current:
+            self._emit(f"  {current}")
+
+    def standard_orientation(
+        self,
+        atoms: list[tuple[str, float, float, float]] | tuple[tuple[str, float, float, float], ...],
+        *,
+        charge: int,
+        multiplicity: int,
+        units: str = "angstrom",
+    ) -> None:
+        """Print the input geometry in a fixed Cartesian table."""
+        label = "BOHR" if str(units).strip().lower() in {"bohr", "au", "a.u."} else "ANGSTROMS"
+        self.section("Input orientation")
+        self.kv("Coordinate units", label)
+        self._emit("  CENTER ATOMIC ATOMIC               COORDINATES")
+        self._emit("  NUMBER NUMBER SYMBOL       X            Y            Z")
+        self._emit("  " + "-" * 64)
+        for number, (symbol, x_coord, y_coord, z_coord) in enumerate(atoms, start=1):
+            atomic_number = _ATOMIC_NUMBERS.get(symbol.upper(), 0)
+            self._emit(
+                f"  {number:6d} {atomic_number:6d}   {symbol:>2}"
+                f"   {x_coord:12.6f} {y_coord:12.6f} {z_coord:12.6f}"
+            )
+        self._emit("  " + "-" * 64)
+        self.kv("Charge", int(charge))
+        self.kv("Multiplicity", int(multiplicity))
+
+    def echo_input(self, text: str) -> None:
+        """Echo the input deck verbatim."""
+        self.section("Input deck")
+        for raw in text.splitlines():
+            self._emit(raw.rstrip())
+
+    def options_block(self, title: str, opts: Mapping[str, Any]) -> None:
+        """Print a resolved control namelist in fixed fields."""
+        self.section(title)
+        for key in sorted(opts):
+            self.kv(str(key).upper(), _control_text(opts[key]))
+
+    def mixing_kv(self, g_mix: float | None, sigma_mix: float | None, *, indent: int = 2) -> None:
         """Print configured ``G`` / ``Sigma`` linear-mixing factors."""
-        pad = " " * indent
-        self._emit(f"{pad}G mix     {format_mix_value(g_mix)}")
-        self._emit(f"{pad}Sigma mix {format_mix_value(sigma_mix)}")
+        self.kv("G mix", format_mix_value(g_mix), indent=indent)
+        self.kv("Sigma mix", format_mix_value(sigma_mix), indent=indent)
 
     def outer_iter(
         self,
@@ -174,40 +389,113 @@ class Reporter:
         g_mix: float | None = None,
         sigma_mix: float | None = None,
     ) -> None:
-        self._emit()
-        self._emit(f"  >> outer iteration {n}")
-        self.mixing_kv(g_mix, sigma_mix)
+        self._emit("")
+        self._emit(self._rule("-"))
+        self._emit(
+            f"  CYCLE {n:4d}            G MIX = {format_mix_value(g_mix):<8}"
+            f"SIGMA MIX = {format_mix_value(sigma_mix)}"
+        )
+        self._emit(self._rule("-"))
 
     def inner_iter(self, n: int, fock_rms: float) -> None:
-        self.detail(f"inner {n:3d}  Fock RMS = {fock_rms:.3e}")
+        self._emit(f"  Iter {n:4d}   RMS(Fock) = {_d_float(fock_rms)}")
 
     def energy_row(self, label: str, value: float, delta: float | None = None) -> None:
-        if delta is None:
-            self.kv(label, f"{value: .12f}")
+        name = " ".join(str(label).upper().split())
+        text = f"  {name:<22}{value:16.12f}"
+        if delta is not None:
+            text += f"    DELTA = {_d_float(delta)}"
+        self._emit(text)
+
+    def _punch_lines(self, summary: RunSummary) -> list[str]:
+        def rec(key: str, value: str) -> str:
+            return f" {key:<8}{value}"
+
+        rows = [
+            "",
+            " $PUNCH",
+            rec("JOB", summary.job_name),
+            rec("ECORE", f"{summary.core_gf2:16.12f}"),
+            rec("ECORR", f"{summary.corr_gf2:16.12f}"),
+            rec("ETOT", f"{summary.total_gf2:16.12f}"),
+        ]
+        if summary.hf_energy is not None:
+            rows.append(rec("EHF", f"{summary.hf_energy:16.12f}"))
+        rows.append(rec("CONV", "T" if summary.converged else "F"))
+        rows.append(rec("SPIN", summary.spin_mode.upper()))
+        if summary.spin_mode == "unrestricted":
+            if summary.n_alpha is not None:
+                rows.append(rec("NALPHA", str(summary.n_alpha)))
+            if summary.n_beta is not None:
+                rows.append(rec("NBETA", str(summary.n_beta)))
+            if summary.mu_alpha is not None:
+                rows.append(rec("MUA", f"{summary.mu_alpha:16.10f}"))
+            if summary.mu_beta is not None:
+                rows.append(rec("MUB", f"{summary.mu_beta:16.10f}"))
+        rows.append(rec("WALL", f"{summary.wall_time_s:16.6f}"))
+        rows.append(" $END")
+        return rows
+
+    def _emit_punch(self, summary: RunSummary) -> None:
+        if self._punched:
+            return
+        for row in self._punch_lines(summary):
+            self._emit(row)
+        self._punched = True
+
+    def _emit_termination(self, summary: RunSummary) -> None:
+        if self._terminated:
+            return
+        for row in self._termination_lines(summary):
+            self._emit(row)
+        self._terminated = True
+
+    def _termination_lines(self, summary: RunSummary) -> list[str]:
+        if summary.converged:
+            message = "NORMAL TERMINATION OF QED-GF2"
         else:
-            self.kv(label, f"{value: .12f}  (Δ {delta:.3e})")
+            message = "QED-GF2 TERMINATED -- CONVERGENCE NOT ACHIEVED"
+        finished = f"FINISHED  {_stamp(datetime.now().astimezone())}"
+        inner = self.width - 4
+        return [
+            "",
+            self._rule("*"),
+            f"* {message.center(inner)} *",
+            f"* {finished.center(inner)} *",
+            self._rule("*"),
+        ]
+
+    def _has_heading(self, title: str) -> bool:
+        key = " ".join(str(title).upper().split())
+        return key in self._sections
 
     def write_summary_block(self, summary: RunSummary) -> None:
-        self.section("Results")
-        self.kv("Core GF2 energy", f"{summary.core_gf2:.12f}")
-        self.kv("GF2 correlation", f"{summary.corr_gf2:.12f}")
-        self.kv("Total GF2 energy", f"{summary.total_gf2:.12f}")
+        self.section("Final results")
+        self.kv("Core GF2 energy", f"{summary.core_gf2:20.12f} HARTREE")
+        self.kv("GF2 correlation", f"{summary.corr_gf2:20.12f} HARTREE")
+        self.kv("Total GF2 energy", f"{summary.total_gf2:20.12f} HARTREE")
         if summary.spin_mode == "unrestricted":
-            self.kv("Spin mode", summary.spin_mode)
-            self.kv("N alpha", summary.n_alpha)
-            self.kv("N beta", summary.n_beta)
-            self.kv("mu alpha", f"{summary.mu_alpha:.10f}")
-            self.kv("mu beta", f"{summary.mu_beta:.10f}")
-            self.kv("Tr[P_alpha S]", f"{summary.trace_p_alpha_s:.8f}")
-            self.kv("Tr[P_beta S]", f"{summary.trace_p_beta_s:.8f}")
+            self.kv("Spin mode", "UNRESTRICTED")
+            if summary.n_alpha is not None:
+                self.kv("N alpha", summary.n_alpha)
+            if summary.n_beta is not None:
+                self.kv("N beta", summary.n_beta)
+            if summary.mu_alpha is not None:
+                self.kv("mu alpha", f"{summary.mu_alpha:.10f}")
+            if summary.mu_beta is not None:
+                self.kv("mu beta", f"{summary.mu_beta:.10f}")
+            if summary.trace_p_alpha_s is not None:
+                self.kv("Tr[P_alpha S]", f"{summary.trace_p_alpha_s:.8f}")
+            if summary.trace_p_beta_s is not None:
+                self.kv("Tr[P_beta S]", f"{summary.trace_p_beta_s:.8f}")
         if summary.hf_energy is not None:
-            self.kv("Reference HF energy", f"{summary.hf_energy:.12f}")
+            self.kv("Reference HF energy", f"{summary.hf_energy:20.12f} HARTREE")
         if summary.mp2_psi4 is not None and summary.mp2_gf2_estimate is not None:
             diff = summary.mp2_gf2_estimate - summary.mp2_psi4
-            self.kv("Psi4 MP2 correlation", f"{summary.mp2_psi4:.12f}")
-            self.kv("GF2 MP2 estimate", f"{summary.mp2_gf2_estimate:.12f}")
-            self.kv("MP2 difference", f"{diff:.12f}")
-        status = "converged" if summary.converged else "not converged"
+            self.kv("Psi4 MP2 correlation", f"{summary.mp2_psi4:20.12f} HARTREE")
+            self.kv("GF2 MP2 estimate", f"{summary.mp2_gf2_estimate:20.12f} HARTREE")
+            self.kv("MP2 difference", f"{diff:20.12f} HARTREE")
+        status = "CONVERGED" if summary.converged else "NOT CONVERGED"
         self.kv("SCF status", status)
         self.kv("G mix", format_mix_value(summary.g_mix))
         self.kv("Sigma mix", format_mix_value(summary.sigma_mix))
@@ -223,69 +511,44 @@ class Reporter:
                     summary.interaction_metadata["qed_low_rank_channels"],
                 )
         for name, seconds in summary.component_timings_s.items():
-            self.kv(f"Time {name}", f"{seconds:.3f} s")
+            self.kv(f"Time {name}", f"{seconds:12.3f} SECONDS")
         for name, value in summary.convergence_diagnostics.items():
-            self.kv(f"Residual {name}", f"{value:.3e}")
-        self.kv("Wall time", f"{summary.wall_time_s:.2f} s")
+            self.kv(f"Residual {name}", _d_float(value))
+        self.kv("Wall time", f"{summary.wall_time_s:12.2f} SECONDS")
+        done = f"SCF Done:  E(GF2) = {summary.total_gf2:20.12f} a.u."
+        self._emit("")
+        self._emit(self._rule("*"))
+        self._emit(done.center(self.width))
+        self._emit(self._rule("*"))
+        self._emit_punch(summary)
+        self._emit_termination(summary)
 
     def write_output_file(
         self,
         path: str | Path,
         *,
-        summary: RunSummary,
+        summary: RunSummary | None = None,
         psi4_options: Mapping[str, Any] | None = None,
         gf2_options: Mapping[str, Any] | None = None,
-    ) -> None:
-        """Write a formatted transcript (log + summary) to disk."""
-        out = Path(path)
+    ) -> Path:
+        """Overwrite ``path`` with the screen transcript.
+
+        The archive is the log itself: plain text, one record per line,
+        replaced on every run. Optional option maps and a punch record are
+        appended only when the transcript does not already contain them.
+        """
+        out = Path(path).expanduser()
         out.parent.mkdir(parents=True, exist_ok=True)
-        finished = datetime.now(timezone.utc)
-        with out.open("w", encoding="utf-8") as fh:
-            fh.write(self._file_header(summary, finished))
-            if psi4_options:
-                fh.write(self._options_block("Psi4 options", psi4_options))
-            if gf2_options:
-                fh.write(self._options_block("GF2 options", gf2_options))
-            fh.write("\n--- run log ---\n\n")
-            fh.write("\n".join(self.lines))
-            fh.write("\n\n--- summary ---\n\n")
-            fh.write(self._plain_summary(summary))
-        self.ok(f"Wrote results to {out.resolve()}")
-
-    def _file_header(self, summary: RunSummary, finished: datetime) -> str:
-        lines = [
-            "GF2 calculation report",
-            "=" * 72,
-            f"Job name     : {summary.job_name}",
-            f"Started (UTC): {self._started.strftime('%Y-%m-%d %H:%M:%S')}",
-            f"Finished(UTC): {finished.strftime('%Y-%m-%d %H:%M:%S')}",
-        ]
-        if summary.input_path:
-            lines.append(f"Input file   : {summary.input_path}")
-        if summary.output_path:
-            lines.append(f"Output file  : {summary.output_path}")
-        lines.append("")
-        return "\n".join(lines)
-
-    @staticmethod
-    def _options_block(title: str, opts: Mapping[str, Any]) -> str:
-        lines = [f"{title}", "-" * len(title)]
-        for key in sorted(opts.keys()):
-            lines.append(f"  {key:<22} {opts[key]}")
-        lines.append("")
-        return "\n".join(lines)
-
-    @staticmethod
-    def _plain_summary(summary: RunSummary) -> str:
-        lines = [
-            f"Core GF2 energy     {summary.core_gf2:20.12f}",
-            f"GF2 correlation     {summary.corr_gf2:20.12f}",
-            f"Total GF2 energy    {summary.total_gf2:20.12f}",
-            f"SCF converged       {summary.converged}",
-            f"G mix               {format_mix_value(summary.g_mix):>20}",
-            f"Sigma mix           {format_mix_value(summary.sigma_mix):>20}",
-            f"Wall time (s)       {summary.wall_time_s:20.6f}",
-        ]
-        if summary.hf_energy is not None:
-            lines.append(f"HF reference        {summary.hf_energy:20.12f}")
-        return "\n".join(lines) + "\n"
+        if psi4_options and not self._has_heading("Psi4 options"):
+            self.options_block("Psi4 options", psi4_options)
+        if gf2_options and not self._has_heading("GF2 options"):
+            self.options_block("GF2 options", gf2_options)
+        if summary is not None:
+            self._emit_punch(summary)
+            self._emit_termination(summary)
+        stored = f" OUTPUT STORED IN  {out.resolve()}"
+        if stored not in self.lines:
+            self._emit("")
+            self._emit(stored)
+        out.write_text("\n".join(self.lines).rstrip() + "\n", encoding="utf-8")
+        return out

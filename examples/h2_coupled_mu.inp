@@ -1,32 +1,25 @@
-# Small exact-ERI molecular input. The restricted coupled mu solver is the default.
-# Add restricted_mu_strategy = nested under [gf2] to compare the earlier inner loop.
+! Small exact-ERI molecular input. The restricted coupled mu solver is the default.
+! Add RESTRICTED_MU_STRATEGY = NESTED below to compare the earlier inner loop.
+%NPROC=1
+#P GF2/STO-3G ERI=STD SCF=PK SYMMETRY=C1 UNITS=ANGSTROM
 
-[job]
-name = H2 exact coupled mu
+H2 exact coupled mu
 
-[molecule]
-charge = 0
-multiplicity = 1
-symmetry = c1
+0 1
 H 0.0 0.0 0.0
 H 0.0 0.0 0.74
 
-[psi4]
-basis = sto-3g
-scf_type = pk
-
-[gf2]
-eri_type = std
-beta = 20
-n_ifreq = 30
-mid_pt = 10
-n_ifreq_full = 200
-n_itime = 30
-n_poly = 20
-maxiter_fock_diis = 8
-maxiter_gf_diis = 60
-thresh_energy = 1.0e-5
-thresh_fock_rms = 1.0e-6
-thresh_ne = 1.0e-6
-mp2 = false
-n_threads = 1
+$GF2
+ BETA              = 20
+ N_IFREQ           = 30
+ MID_PT            = 10
+ N_IFREQ_FULL      = 200
+ N_ITIME           = 30
+ N_POLY            = 20
+ MAXITER_FOCK_DIIS = 8
+ MAXITER_GF_DIIS   = 60
+ THRESH_ENERGY     = 1.0D-5
+ THRESH_FOCK_RMS   = 1.0D-6
+ THRESH_NE         = 1.0D-6
+ MP2               = OFF
+$END

@@ -54,6 +54,59 @@ def _set_key(lines: list[str], section: str, key: str, value: str) -> None:
     lines.insert(end, f"{key} = {value}")
 
 
+def _coord_start(tokens: list[str]) -> int:
+    if len(tokens) >= 5:
+        try:
+            float(tokens[1])
+        except ValueError:
+            return 1
+        return 2
+    return 1
+
+
+def _render_classic_diatomic(
+    template_text: str,
+    distance: float,
+    *,
+    method: str | None,
+    job_name: str | None,
+) -> str:
+    from .classic_input import classic_layout, replace_method_line
+
+    value = float(distance)
+    layout = classic_layout(template_text)
+    if layout is None:
+        raise ValueError("input is not a route or namelist deck")
+    lines = template_text.splitlines()
+    first_index, second_index = layout.atom_indexes
+    first_tokens = lines[first_index].split()
+    second_tokens = lines[second_index].split()
+    first_xyz = _coord_start(first_tokens)
+    second_xyz = _coord_start(second_tokens)
+    r1 = np.asarray([float(token) for token in first_tokens[first_xyz : first_xyz + 3]])
+    r2 = np.asarray([float(token) for token in second_tokens[second_xyz : second_xyz + 3]])
+    axis = r2 - r1
+    norm = float(np.linalg.norm(axis))
+    if norm <= 1.0e-14:
+        raise ValueError("template diatomic bond length must be nonzero")
+    r2_new = r1 + value * axis / norm
+    indent = lines[second_index][: len(lines[second_index]) - len(lines[second_index].lstrip())]
+    head = second_tokens[:second_xyz]
+    tail = second_tokens[second_xyz + 3 :]
+    coords = f"{r2_new[0]:.12f} {r2_new[1]:.12f} {r2_new[2]:.12f}"
+    trailing = f" {' '.join(tail)}" if tail else ""
+    lines[second_index] = f"{indent}{' '.join(head)} {coords}{trailing}"
+    if job_name is not None and layout.title_index is not None:
+        lines[layout.title_index] = job_name
+    if method is not None:
+        for index in layout.method_indexes:
+            updated = replace_method_line(lines[index], method)
+            if updated != lines[index]:
+                lines[index] = updated
+                break
+    return "\n".join(lines) + "\n"
+
+
 def render_diatomic_input(
     template_text: str,
     distance: float,
@@ -62,9 +115,18 @@ def render_diatomic_input(
     job_name: str | None = None,
 ) -> str:
     "Render one geometry from a two-atom input template."
+    from .classic_input import deck_kind
+
     value = float(distance)
     if not np.isfinite(value) or value <= 0.0:
         raise ValueError("distance must be finite and positive")
+    if deck_kind(template_text) in {"route", "namelist"}:
+        return _render_classic_diatomic(
+            template_text,
+            value,
+            method=method,
+            job_name=job_name,
+        )
 
     lines = template_text.splitlines()
     start, end = _section_bounds(lines, "molecule")

@@ -24,15 +24,52 @@ python -m pip install .
 qed-gf2 examples/h2.inp --json result.json
 ```
 
-Use `from gf2 import run_gf2` for Python calculations. Runnable exact/DF and
-one-/two-mode CS examples are in `examples/`; LF/PES utilities are in `tools/`.
+Use `from gf2 import run_gf2` for Python calculations. Molecular and cavity
+decks are in `examples/`; LF/PES utilities are in `tools/`.
 Set `QED_GF2_SIGMA_WORKERS` to control self-energy workers separately from
 Psi4 threads.
 
+The input deck starts with optional ``%`` lines, then a route card, a title,
+charge and multiplicity, Cartesian coordinates, and a ``$GF2`` namelist.
+A ``$molecule`` / ``$rem`` namelist is also accepted, as is a
+``[section]`` block.
+
+```
+%NPROC=2
+#P GF2/cc-pVDZ ERI=DF SCF=PK SYMMETRY=C1
+
+H2 cc-pVDZ
+
+0 1
+H  0.0  0.0  0.0
+H  0.0  0.0  0.74
+
+$GF2
+ BETA = 50
+ MP2  = ON
+$END
+```
+
+## Example decks
+
+```bash
+qed-gf2 examples/h2_exact.inp
+qed-gf2 examples/h2_cs_one_mode_exact.inp
+qed-gf2 examples/h2_cs_two_mode_df.inp
+qed-gf2 examples/water_gf2.inp
+qed-gf2 examples/hf_gf2.inp
+qed-gf2 examples/heh_plus_gf2.inp
+qed-gf2 examples/lih_cs_gf2.inp
+qed-gf2 examples/lih_lf_gf2.inp
+```
+
+These cover H2 with exact and density-fitted integrals, one and two cavity modes, water, hydrogen fluoride, HeH+, closed-shell LiH in the coherent-state and projected calculations, and the open-shell Li and LiH+ decks below.
+
 ## Unrestricted electronic and cavity GF2
 
-Set `spin_mode = unrestricted` in `[gf2]` for a spin-resolved UGF2 or
-coherent-state QED-UGF2 calculation. The UHF reference and GF2 iterations
+Use `UGF2` or `UCS-GF2` on the route card for a spin-resolved UGF2 or
+coherent-state QED-UGF2 calculation (`spin_mode unrestricted` in a `$rem`
+or `[gf2]` block does the same). The UHF reference and GF2 iterations
 retain separate alpha and beta populations. Run the included small examples:
 
 ```bash
@@ -50,8 +87,8 @@ QED-GF2; projected LF-GF2 remains restricted.
 
 Electronic GF2 and CS-GF2 now jointly update the restricted Fock matrix and
 chemical potential by default. Each outer iteration finishes with a strict
-electron-count search and Fock check. Set `restricted_mu_strategy = nested`
-in `[gf2]` to use the earlier nested chemical-potential loop. The `auto`
+electron-count search and Fock check. Set `restricted_mu_strategy nested`
+in the ``$GF2`` namelist to use the earlier nested chemical-potential loop. The `auto`
 default retains that earlier loop for projected LF-GF2 and when explicitly
 selecting bisection, disabling Newton, or disabling Fock DIIS.
 
