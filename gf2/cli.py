@@ -27,11 +27,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "The deck is a route card (#P METHOD/BASIS), a title, "
-            "charge and multiplicity, Cartesian geometry, then keywords. "
-            "$molecule/$rem namelists and the older [section] form are "
-            "also accepted. Frequencies and couplings use atomic units. "
-            "A fixed-width .out transcript is written beside the input "
-            "(override with %output= or output=)."
+            "charge and multiplicity, Cartesian geometry, then a $GF2 "
+            "namelist. $molecule/$rem namelists and the older [section] "
+            "form are also accepted. Frequencies and couplings use atomic "
+            "units. A fixed-width .out transcript is written beside the "
+            "input (override with %output= or output=)."
         ),
     )
     parser.add_argument("input", nargs="?", help="Path to a QED-GF2 .inp file.")
@@ -158,8 +158,9 @@ def _run(args: argparse.Namespace) -> int:
         reporter.kv("Job name", job.name)
         reporter.kv("Input file", str(path))
         reporter.kv("Output file", str(output_path))
-        reporter.kv("Method", job.method)
-        reporter.kv("ERI representation", gf2_options.eri_type)
+        reporter.kv("Method", str(job.method).upper())
+        reporter.kv("ERI representation", str(gf2_options.eri_type).upper())
+        reporter.kv("Number of threads", gf2_options.n_threads)
         reporter.route_card(job.route or _fallback_route(job, psi4_options, gf2_options))
         reporter.echo_input(path.read_text(encoding="utf-8"))
         if job.atoms:

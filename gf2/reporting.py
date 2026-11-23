@@ -180,6 +180,26 @@ def _fortran_float(value: float, width: int = 12, precision: int = 3) -> str:
     return f"{value:{width}.{precision}E}".replace("E", "D")
 
 
+def fortran_real(value: float, precision: int = 3) -> str:
+    """Compact Fortran real, with a D exponent and no leading blank."""
+    return f"{value:.{precision}e}".replace("e", "D")
+
+
+def _control_text(value: Any) -> str:
+    """One resolved control value, as a namelist record would print it."""
+    if isinstance(value, bool):
+        return "ON" if value else "OFF"
+    if value is None:
+        return "NONE"
+    if isinstance(value, float):
+        if value == 0.0 or 1.0e-2 <= abs(value) < 1.0e4:
+            return f"{value:.8f}"
+        return f"{value:.6E}".replace("E", "D")
+    if isinstance(value, str) and "/" not in value and "\\" not in value:
+        return value.upper()
+    return str(value)
+
+
 def _format_printed_value(value: Any) -> str:
     if isinstance(value, bool):
         return "T" if value else "F"
@@ -352,9 +372,10 @@ class Reporter:
             self._emit(raw.rstrip())
 
     def options_block(self, title: str, opts: Mapping[str, Any]) -> None:
+        """Print a resolved control namelist in fixed fields."""
         self.section(title)
         for key in sorted(opts):
-            self.kv(str(key), opts[key])
+            self.kv(str(key).upper(), _control_text(opts[key]))
 
     def mixing_kv(self, g_mix: float | None, sigma_mix: float | None, *, indent: int = 2) -> None:
         """Print configured ``G`` / ``Sigma`` linear-mixing factors."""

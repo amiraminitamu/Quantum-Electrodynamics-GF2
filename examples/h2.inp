@@ -1,6 +1,6 @@
 ! H2 / cc-pVDZ — deterministic Matsubara GF2 (regression geometry)
-%nproc=2
-%output=examples/h2_results.out
+%NPROC=2
+%OUTPUT=examples/h2_results.out
 #P GF2/cc-pVDZ ERI=DF SCF=PK SYMMETRY=C1 UNITS=ANGSTROM
 
 H2 cc-pVDZ regression
@@ -9,21 +9,23 @@ H2 cc-pVDZ regression
 H   0.0   0.0   0.0
 H   0.0   0.0   0.74
 
-beta              50
-n_ifreq           300
-mid_pt            100
-n_ifreq_full      10000
-n_itime           300
-n_poly            50
-se_fit_basis      cc-pvdz-ri
-fock_fit_basis    cc-pvdz-ri
-thresh_energy     1.0e-6
-thresh_fock_rms   1.0e-6
-thresh_ne         1.0e-6
-newton_on         true
-maxiter_newton    60
-maxiter_fock_diis 30
-maxiter_gf_diis   30
-! g_mix 0.7
-! sigma_mix 0.7
-mp2               true
+$GF2
+ BETA              = 50
+ N_IFREQ           = 300
+ MID_PT            = 100
+ N_IFREQ_FULL      = 10000
+ N_ITIME           = 300
+ N_POLY            = 50
+ SE_FIT_BASIS      = cc-pvdz-ri
+ FOCK_FIT_BASIS    = cc-pvdz-ri
+ THRESH_ENERGY     = 1.0D-6
+ THRESH_FOCK_RMS   = 1.0D-6
+ THRESH_NE         = 1.0D-6
+ NEWTON            = ON
+ MAXITER_NEWTON    = 60
+ MAXITER_FOCK_DIIS = 30
+ MAXITER_GF_DIIS   = 30
+ ! G_MIX = 0.7
+ ! SIGMA_MIX = 0.7
+ MP2               = ON
+$END

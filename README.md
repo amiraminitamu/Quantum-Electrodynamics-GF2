@@ -30,12 +30,12 @@ Set `QED_GF2_SIGMA_WORKERS` to control self-energy workers separately from
 Psi4 threads.
 
 The input deck starts with optional ``%`` lines, then a route card, a title,
-charge and multiplicity, Cartesian coordinates, and keywords. A
-``$molecule`` / ``$rem`` namelist is also accepted, as is the older
+charge and multiplicity, Cartesian coordinates, and a ``$GF2`` namelist.
+A ``$molecule`` / ``$rem`` namelist is also accepted, as is the older
 ``[section]`` form.
 
 ```
-%nproc=2
+%NPROC=2
 #P GF2/cc-pVDZ ERI=DF SCF=PK SYMMETRY=C1
 
 H2 cc-pVDZ
@@ -44,8 +44,10 @@ H2 cc-pVDZ
 H  0.0  0.0  0.0
 H  0.0  0.0  0.74
 
-beta 50
-mp2 true
+$GF2
+ BETA = 50
+ MP2  = ON
+$END
 ```
 
 ## Unrestricted electronic and cavity GF2
@@ -71,7 +73,7 @@ QED-GF2; projected LF-GF2 remains restricted.
 Electronic GF2 and CS-GF2 now jointly update the restricted Fock matrix and
 chemical potential by default. Each outer iteration finishes with a strict
 electron-count search and Fock check. Set `restricted_mu_strategy nested`
-in the keyword block to use the earlier nested chemical-potential loop. The `auto`
+in the ``$GF2`` namelist to use the earlier nested chemical-potential loop. The `auto`
 default retains that earlier loop for projected LF-GF2 and when explicitly
 selecting bisection, disabling Newton, or disabling Fock DIIS.
 

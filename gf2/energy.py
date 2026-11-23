@@ -8,6 +8,8 @@ from typing import Any
 
 import numpy as np
 
+from .reporting import Reporter, fortran_real
+
 try:
     import psi4
 except ImportError:  # pragma: no cover - psi4 is required at runtime
@@ -119,11 +121,9 @@ def print_mp2_comparison(
     diff = gf2_estimate - psi4_corr
     rel = diff / psi4_corr if psi4_corr != 0.0 else float("nan")
     if reporter is None:
-        from .reporting import Reporter
-
         reporter = Reporter()
     reporter.section("MP2 comparison")
     reporter.kv("Psi4 (canonical)", f"{psi4_corr:20.12f} HARTREE")
     reporter.kv("GF2 estimate (G0)", f"{gf2_estimate:20.12f} HARTREE")
     reporter.kv("Difference", f"{diff:20.12f} HARTREE")
-    reporter.kv("Relative", f"{rel:12.6E}")
+    reporter.kv("Relative", fortran_real(rel, 6))

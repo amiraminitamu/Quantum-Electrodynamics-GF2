@@ -57,7 +57,7 @@ from .qed import (
     polarization_tau,
     sigma_eb_tau,
 )
-from .reporting import Reporter, RunSummary, format_mix_value
+from .reporting import Reporter, RunSummary, format_mix_value, fortran_real
 from .utils import linear_mix, nelec_from_density
 
 
@@ -417,14 +417,14 @@ def run_gf2(
             rep.kv("LF reference", "fixed lambda / correlated warm-state density")
             rep.kv(
                 "Warm-start source ||lambda||",
-                f"{np.linalg.norm(lf_initial_state.lambda_fixed):.8e}",
+                fortran_real(float(np.linalg.norm(lf_initial_state.lambda_fixed)), 8),
             )
             rep.kv("LF seed static energy", f"{float(ref['lf_reference_energy']): .12f}")
         else:
             rep.kv("LF reference", "fixed lambda / CS-HF density seed")
             rep.kv("LF seed static energy", f"{float(ref['lf_reference_energy']): .12f}")
-        rep.kv("LF ||lambda||", f"{np.linalg.norm(lf_params.lam):.8e}")
-        rep.kv("LF z", f"{lf_params.z:.8e}")
+        rep.kv("LF ||lambda||", fortran_real(float(np.linalg.norm(lf_params.lam)), 8))
+        rep.kv("LF z", fortran_real(float(lf_params.z), 8))
     rep.kv("Electrons Tr[P S]", f"{nelec_from_density(P, S): .8f}")
     rep.kv("Occupied orbitals", nocc)
     rep.kv("Virtual orbitals", nbf - nocc)
@@ -883,8 +883,8 @@ def run_gf2(
             lf_effective_next = build_lf_effective(lf_context, lf_next)
             rep.detail(
                 f"{update_label}: "
-                f"dlam={lf_dlam:.3e} dz={lf_dz:.3e} "
-                f"z-stationarity={lf_stationarity:.3e}"
+                f"dlam={fortran_real(lf_dlam)} dz={fortran_real(lf_dz)} "
+                f"z-stationarity={fortran_real(lf_stationarity)}"
             )
 
         if diagnostic_callback is not None:
@@ -947,13 +947,15 @@ def run_gf2(
             abs(gf_corr - corr_old),
         )
         rep.energy_row("Total GF2", gf_total, abs(gf_total - total_old))
+        rep.kv("Chemical potential", f"{float(mu):.10f}")
+        rep.kv("Electrons", f"{float(nelec_from_density(rho, S)):.8f}")
         if last_breakdown is not None:
             rep.detail(
                 "energy components: "
                 f"Cee={last_breakdown.ee_correlation:.9f} "
                 f"Ceb={last_breakdown.eb_fermionic_trace:.9f} "
                 f"Eph={last_breakdown.photon_fluctuation_energy:.9f} "
-                f"SigmaG-PiD={last_breakdown.sigma_g_pi_d_residual:.3e}"
+                f"SigmaG-PiD={fortran_real(last_breakdown.sigma_g_pi_d_residual)}"
             )
 
         Sigma_if = sigma_total_iw_updated

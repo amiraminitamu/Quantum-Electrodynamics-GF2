@@ -129,6 +129,19 @@ def test_output_archive_matches_the_screen_transcript(tmp_path: Path) -> None:
     assert written.read_text(encoding="utf-8").count("NORMAL TERMINATION OF QED-GF2") == 1
 
 
+def test_control_namelist_uses_fixed_fortran_fields() -> None:
+    reporter = Reporter(echo=False)
+    reporter.options_block(
+        "GF2 options",
+        {"beta": 50.0, "thresh_energy": 1.0e-6, "newton_on": True, "eri_type": "std"},
+    )
+    text = "\n".join(reporter.lines)
+    assert "BETA" in text and "50.00000000" in text
+    assert "THRESH_ENERGY" in text and "1.000000D-06" in text
+    assert "NEWTON_ON" in text and " = ON" in text
+    assert "ERI_TYPE" in text and " = STD" in text
+
+
 def test_unconverged_punch_and_custom_output_path(tmp_path: Path) -> None:
     source = tmp_path / "water.inp"
     assert resolve_output_path(source) == tmp_path / "water.out"

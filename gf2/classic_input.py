@@ -76,7 +76,13 @@ _KEY_ALIAS = {
     "jobname": "name",
     "output_file": "output",
     "scftyp": "scf_type",
+    "newton": "newton_on",
+    "bisection": "bisection_on",
+    "fock_diis": "fock_diis_on_off",
 }
+_D_REAL = re.compile(
+    r"(?i)(?<![A-Za-z_])([+-]?(?:\d+\.\d*|\.\d+|\d+))[dD]([+-]?\d+)"
+)
 
 
 @dataclass(frozen=True)
@@ -236,9 +242,14 @@ def _normalize_method(token: str) -> tuple[str, str | None]:
     return _METHOD_ALIASES[key]
 
 
+def _normalize_literal(raw: str) -> str:
+    """Turn a Fortran ``D`` exponent into a decimal literal the section parser accepts."""
+    return _D_REAL.sub(lambda match: f"{match.group(1)}e{match.group(2)}", raw)
+
+
 def _store(bucket: _Bucket, key: str, value: str) -> None:
     name = _KEY_ALIAS.get(key, key).lower()
-    raw = value.strip()
+    raw = _normalize_literal(value.strip())
     low = raw.lower()
     if name in {"scf_type", "reference"} and low in {"rhf", "uhf", "rohf"}:
         if low == "rohf":
@@ -489,20 +500,47 @@ def _route_blocks(lines: list[str]) -> tuple[dict[str, str], str]:
     for token in route_body.split():
         _apply_route_token(bucket, token)
     bucket.atoms = [_strip_bang(lines[index]).strip() for index in walk.atom_indexes]
-    tail, cavity_lines = _split_cavity_tail(walk.tail)
+    tail, groups = _split_keyword_groups(walk.tail)
     _consume_keywords(bucket, tail)
-    _consume_keywords(bucket, cavity_lines)
+    _consume_keywords(bucket, groups.get("gf2", []))
+    _consume_keywords(bucket, groups.get("rem", []))
+    _consume_keywords(bucket, groups.get("cavity", []))
     return _render(bucket)
 
 
-def _split_cavity_tail(lines: list[str]) -> tuple[list[str], list[str]]:
-    text = "\n".join(lines)
-    match = re.search(r"(?is)\$cavity\b(.*?)\$end", text)
-    if match is None:
-        return lines, []
-    cavity = match.group(1).splitlines()
-    kept = (text[: match.start()] + text[match.end() :]).splitlines()
-    return kept, cavity
+def _split_keyword_groups(lines: list[str]) -> tuple[list[str], dict[str, list[str]]]:
+    """Pull ``$GF2``, ``$REM``, and ``$CAVITY`` bodies out of a route-card tail."""
+    groups: dict[str, list[str]] = {}
+    kept: list[str] = []
+    current: str | None = None
+    buffer: list[str] = []
+    for raw in lines:
+        line = _strip_bang(raw).strip()
+        match = re.match(r"(?i)^\$([A-Za-z_][A-Za-z0-9_]*)\b\s*(.*)$", line)
+        if match:
+            name = match.group(1).lower()
+            if name == "end":
+                if current is not None:
+                    groups.setdefault(current, []).extend(buffer)
+                current = None
+                buffer = []
+                continue
+            if current is not None:
+                groups.setdefault(current, []).extend(buffer)
+                buffer = []
+            if name in {"gf2", "rem", "contrl", "control", "cavity"}:
+                current = "cavity" if name == "cavity" else "rem" if name != "gf2" else "gf2"
+                rest = match.group(2).strip()
+                if rest:
+                    buffer.append(rest)
+                continue
+        if current is not None:
+            buffer.append(raw)
+        else:
+            kept.append(raw)
+    if current is not None:
+        groups.setdefault(current, []).extend(buffer)
+    return kept, groups
 
 
 def _namelist_blocks(lines: list[str]) -> tuple[dict[str, str], str]:
@@ -518,6 +556,8 @@ def _namelist_blocks(lines: list[str]) -> tuple[dict[str, str], str]:
         _load_molecule_block(bucket, groups["molecule"])
     rem = "\n".join(part for part in (groups.get("rem", ""), groups.get("contrl", "")) if part)
     _consume_keywords(bucket, rem.splitlines())
+    if "gf2" in groups:
+        _consume_keywords(bucket, groups["gf2"].splitlines())
     if "cavity" in groups:
         _consume_keywords(bucket, groups["cavity"].splitlines())
     method = bucket.method or "gf2"

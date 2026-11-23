@@ -80,5 +80,34 @@ def test_missing_route_is_rejected() -> None:
         classic_blocks("%nproc=1\n\n0 1\nH 0 0 0\n")
 
 
+def test_gf2_namelist_accepts_fortran_reals_and_on_off() -> None:
+    text = """#P GF2/cc-pVDZ ERI=STD
+
+H2 namelist
+
+0 1
+H 0.0 0.0 0.0
+H 0.0 0.0 0.74
+
+$GF2
+ BETA = 50
+ THRESH_ENERGY = 1.0D-6
+ NEWTON = ON
+ MP2 = OFF
+$END
+
+$CAVITY
+ MODE1 = 1.0D-1, 2.0D-2, 0, 0, 1
+$END
+"""
+    blocks, route = classic_blocks(text)
+    assert route.startswith("#P GF2/cc-pVDZ")
+    assert "beta = 50" in blocks["gf2"]
+    assert "thresh_energy = 1.0e-6" in blocks["gf2"]
+    assert "newton_on = ON" in blocks["gf2"]
+    assert "mp2 = OFF" in blocks["gf2"]
+    assert "mode1 = 1.0e-1, 2.0e-2, 0, 0, 1" in blocks["cavity"]
+
+
 def test_section_deck_is_left_alone() -> None:
     assert classic_blocks("[job]\nname = kept\n") is None

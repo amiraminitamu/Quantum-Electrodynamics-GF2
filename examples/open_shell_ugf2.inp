@@ -1,5 +1,5 @@
 ! Li doublet: fixed N_alpha=2, N_beta=1 UGF2.
-%nproc=1
+%NPROC=1
 #P UGF2/STO-3G ERI=STD SCF=PK SYMMETRY=C1 UNITS=ANGSTROM
 
 Li unrestricted GF2
@@ -7,14 +7,16 @@ Li unrestricted GF2
 0 2
 Li 0.0 0.0 0.0
 
-beta              5
-n_ifreq           32
-mid_pt            10
-n_ifreq_full      512
-n_itime           32
-n_poly            12
-g_mix             0.5
-sigma_mix         0.5
-maxiter_gf_diis   120
-maxiter_fock_diis 20
-mp2               false
+$GF2
+ BETA              = 5
+ N_IFREQ           = 32
+ MID_PT            = 10
+ N_IFREQ_FULL      = 512
+ N_ITIME           = 32
+ N_POLY            = 12
+ G_MIX             = 0.5
+ SIGMA_MIX         = 0.5
+ MAXITER_GF_DIIS   = 120
+ MAXITER_FOCK_DIIS = 20
+ MP2               = OFF
+$END
