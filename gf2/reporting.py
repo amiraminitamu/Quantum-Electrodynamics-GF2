@@ -4,8 +4,8 @@
 
 Presentation only. Numeric results are formatted, never recomputed.
 The screen transcript and the output file are the same text: an
-80-column log in the style of a Fortran quantum-chemistry program,
-overwritten on each run and closed with a ``$PUNCH`` record.
+80-column log, overwritten on each run and closed with a ``$PUNCH``
+record.
 """
 
 from __future__ import annotations
@@ -175,13 +175,13 @@ def _tty_color(stream: TextIO) -> bool:
     return bool(isatty and isatty())
 
 
-def _fortran_float(value: float, width: int = 12, precision: int = 3) -> str:
-    """Fortran double-precision field, with a D exponent."""
+def _d_float(value: float, width: int = 12, precision: int = 3) -> str:
+    """Double-precision field with a D exponent."""
     return f"{value:{width}.{precision}E}".replace("E", "D")
 
 
-def fortran_real(value: float, precision: int = 3) -> str:
-    """Compact Fortran real, with a D exponent and no leading blank."""
+def d_real(value: float, precision: int = 3) -> str:
+    """Compact real with a D exponent and no leading blank."""
     return f"{value:.{precision}e}".replace("e", "D")
 
 
@@ -366,7 +366,7 @@ class Reporter:
         self.kv("Multiplicity", int(multiplicity))
 
     def echo_input(self, text: str) -> None:
-        """Echo the input deck verbatim, as a Fortran program echoes its cards."""
+        """Echo the input deck verbatim."""
         self.section("Input deck")
         for raw in text.splitlines():
             self._emit(raw.rstrip())
@@ -398,13 +398,13 @@ class Reporter:
         self._emit(self._rule("-"))
 
     def inner_iter(self, n: int, fock_rms: float) -> None:
-        self._emit(f"  Iter {n:4d}   RMS(Fock) = {_fortran_float(fock_rms)}")
+        self._emit(f"  Iter {n:4d}   RMS(Fock) = {_d_float(fock_rms)}")
 
     def energy_row(self, label: str, value: float, delta: float | None = None) -> None:
         name = " ".join(str(label).upper().split())
         text = f"  {name:<22}{value:16.12f}"
         if delta is not None:
-            text += f"    DELTA = {_fortran_float(delta)}"
+            text += f"    DELTA = {_d_float(delta)}"
         self._emit(text)
 
     def _punch_lines(self, summary: RunSummary) -> list[str]:
@@ -513,7 +513,7 @@ class Reporter:
         for name, seconds in summary.component_timings_s.items():
             self.kv(f"Time {name}", f"{seconds:12.3f} SECONDS")
         for name, value in summary.convergence_diagnostics.items():
-            self.kv(f"Residual {name}", _fortran_float(value))
+            self.kv(f"Residual {name}", _d_float(value))
         self.kv("Wall time", f"{summary.wall_time_s:12.2f} SECONDS")
         done = f"SCF Done:  E(GF2) = {summary.total_gf2:20.12f} a.u."
         self._emit("")

@@ -80,7 +80,7 @@ def test_missing_route_is_rejected() -> None:
         classic_blocks("%nproc=1\n\n0 1\nH 0 0 0\n")
 
 
-def test_gf2_namelist_accepts_fortran_reals_and_on_off() -> None:
+def test_gf2_namelist_accepts_d_exponents_and_on_off() -> None:
     text = """#P GF2/cc-pVDZ ERI=STD
 
 H2 namelist

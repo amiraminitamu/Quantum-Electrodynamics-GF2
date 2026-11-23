@@ -1,6 +1,6 @@
 # Authors: Amirhosein Amini, Jaime Cerda, Leopoldo Mejía, Arkajit Mandal.
 # 2026. Licensed under the MIT License. See LICENSE.
-"""Fixed-width Fortran-style log and .out archive."""
+"""Fixed-width log and .out archive."""
 
 from __future__ import annotations
 
@@ -129,7 +129,7 @@ def test_output_archive_matches_the_screen_transcript(tmp_path: Path) -> None:
     assert written.read_text(encoding="utf-8").count("NORMAL TERMINATION OF QED-GF2") == 1
 
 
-def test_control_namelist_uses_fixed_fortran_fields() -> None:
+def test_control_namelist_uses_fixed_fields() -> None:
     reporter = Reporter(echo=False)
     reporter.options_block(
         "GF2 options",

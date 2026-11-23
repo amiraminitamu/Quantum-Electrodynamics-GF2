@@ -12,7 +12,7 @@ from scipy.optimize import brentq
 
 from . import greens_function as gf
 from . import spline_ft
-from .reporting import fortran_real
+from .reporting import d_real
 from .utils import nelec_from_density
 
 
@@ -195,7 +195,7 @@ def _log_mu_tune(
 ) -> None:
     msg = (
         f"{method}: {steps:4d} steps   mu = {mu:16.10f}"
-        f"   delta Ne = {fortran_real(delta_ne)}"
+        f"   delta Ne = {d_real(delta_ne)}"
     )
     if reporter is not None:
         reporter.detail(msg)
@@ -315,12 +315,12 @@ def tune_newton(
             if reporter is not None:
                 reporter.warn(
                     "poor initial mu "
-                    f"(delta Ne = {fortran_real(delta_ne)}); reseeding with linear fit"
+                    f"(delta Ne = {d_real(delta_ne)}); reseeding with linear fit"
                 )
             else:
                 print(
                     " !!!  poor initial mu "
-                    f"(delta Ne = {fortran_real(delta_ne)}); reseeding with linear fit",
+                    f"(delta Ne = {d_real(delta_ne)}); reseeding with linear fit",
                     flush=True,
                 )
             mu = _linear_fit_guess(

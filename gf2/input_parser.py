@@ -232,7 +232,7 @@ def parse_input_text(
     *,
     input_path: str | Path | None = None,
 ) -> tuple[JobConfig, psi4.core.Molecule, dict[str, Any], GF2Options]:
-    """Parse a classic deck or an older section deck."""
+    """Parse a route card, a namelist, or a ``[section]`` deck."""
     from .classic_input import classic_blocks
 
     route: str | None = None

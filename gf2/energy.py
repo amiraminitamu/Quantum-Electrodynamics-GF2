@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .reporting import Reporter, fortran_real
+from .reporting import Reporter, d_real
 
 try:
     import psi4
@@ -126,4 +126,4 @@ def print_mp2_comparison(
     reporter.kv("Psi4 (canonical)", f"{psi4_corr:20.12f} HARTREE")
     reporter.kv("GF2 estimate (G0)", f"{gf2_estimate:20.12f} HARTREE")
     reporter.kv("Difference", f"{diff:20.12f} HARTREE")
-    reporter.kv("Relative", fortran_real(rel, 6))
+    reporter.kv("Relative", d_real(rel, 6))

@@ -57,7 +57,7 @@ from .qed import (
     polarization_tau,
     sigma_eb_tau,
 )
-from .reporting import Reporter, RunSummary, format_mix_value, fortran_real
+from .reporting import Reporter, RunSummary, format_mix_value, d_real
 from .utils import linear_mix, nelec_from_density
 
 
@@ -417,14 +417,14 @@ def run_gf2(
             rep.kv("LF reference", "fixed lambda / correlated warm-state density")
             rep.kv(
                 "Warm-start source ||lambda||",
-                fortran_real(float(np.linalg.norm(lf_initial_state.lambda_fixed)), 8),
+                d_real(float(np.linalg.norm(lf_initial_state.lambda_fixed)), 8),
             )
             rep.kv("LF seed static energy", f"{float(ref['lf_reference_energy']): .12f}")
         else:
             rep.kv("LF reference", "fixed lambda / CS-HF density seed")
             rep.kv("LF seed static energy", f"{float(ref['lf_reference_energy']): .12f}")
-        rep.kv("LF ||lambda||", fortran_real(float(np.linalg.norm(lf_params.lam)), 8))
-        rep.kv("LF z", fortran_real(float(lf_params.z), 8))
+        rep.kv("LF ||lambda||", d_real(float(np.linalg.norm(lf_params.lam)), 8))
+        rep.kv("LF z", d_real(float(lf_params.z), 8))
     rep.kv("Electrons Tr[P S]", f"{nelec_from_density(P, S): .8f}")
     rep.kv("Occupied orbitals", nocc)
     rep.kv("Virtual orbitals", nbf - nocc)
@@ -883,8 +883,8 @@ def run_gf2(
             lf_effective_next = build_lf_effective(lf_context, lf_next)
             rep.detail(
                 f"{update_label}: "
-                f"dlam={fortran_real(lf_dlam)} dz={fortran_real(lf_dz)} "
-                f"z-stationarity={fortran_real(lf_stationarity)}"
+                f"dlam={d_real(lf_dlam)} dz={d_real(lf_dz)} "
+                f"z-stationarity={d_real(lf_stationarity)}"
             )
 
         if diagnostic_callback is not None:
@@ -955,7 +955,7 @@ def run_gf2(
                 f"Cee={last_breakdown.ee_correlation:.9f} "
                 f"Ceb={last_breakdown.eb_fermionic_trace:.9f} "
                 f"Eph={last_breakdown.photon_fluctuation_energy:.9f} "
-                f"SigmaG-PiD={fortran_real(last_breakdown.sigma_g_pi_d_residual)}"
+                f"SigmaG-PiD={d_real(last_breakdown.sigma_g_pi_d_residual)}"
             )
 
         Sigma_if = sigma_total_iw_updated

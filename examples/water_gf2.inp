@@ -1,0 +1,23 @@
+! Water / STO-3G electronic GF2, exact integrals. Coordinates are angstroms.
+%NPROC=1
+#P GF2/STO-3G ERI=STD SCF=PK SYMMETRY=C1 UNITS=ANGSTROM
+
+Water electronic GF2
+
+0 1
+O   0.000000   0.000000   0.117300
+H   0.000000   0.757200  -0.469200
+H   0.000000  -0.757200  -0.469200
+
+$GF2
+ BETA              = 20
+ N_IFREQ           = 30
+ MID_PT            = 10
+ N_IFREQ_FULL      = 200
+ N_ITIME           = 30
+ N_POLY            = 20
+ MAXITER_GF_DIIS   = 30
+ MAXITER_FOCK_DIIS = 8
+ N_FIT_PTS         = 1000
+ MP2               = OFF
+$END

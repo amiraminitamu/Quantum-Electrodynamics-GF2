@@ -8,14 +8,7 @@ import pytest
 
 pytest.importorskip("psi4")
 
-import sys
-from pathlib import Path
-
-
-EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
-sys.path.insert(0, str(EXAMPLES))
-
-from grid_convergence import run_convergence_study  # noqa: E402
+from tests.grid_study import run_convergence_study
 
 
 def test_documented_time_frequency_error_decreases_with_grid_size() -> None:

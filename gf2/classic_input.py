@@ -2,7 +2,7 @@
 # 2026. Licensed under the MIT License. See LICENSE.
 """Route-card and namelist decks for QED-GF2.
 
-The older ``[section]`` and ``name { }`` decks stay valid. This module
+A ``[section]`` block and a ``name { }`` block stay valid. This module
 turns a route card or a ``$`` namelist into those same sections so the
 calculation path does not change.
 """
@@ -110,7 +110,7 @@ def deck_kind(text: str) -> str:
 def classic_blocks(text: str) -> tuple[dict[str, str], str] | None:
     """Translate a classic deck into ``[section]`` bodies plus the route card.
 
-    Returns ``None`` when ``text`` is an older section or brace deck.
+    Returns ``None`` when ``text`` is a ``[section]`` or brace deck.
     """
     kind = deck_kind(text)
     if kind == "route":
@@ -243,7 +243,7 @@ def _normalize_method(token: str) -> tuple[str, str | None]:
 
 
 def _normalize_literal(raw: str) -> str:
-    """Turn a Fortran ``D`` exponent into a decimal literal the section parser accepts."""
+    """Turn a ``D`` exponent into a decimal literal the section parser accepts."""
     return _D_REAL.sub(lambda match: f"{match.group(1)}e{match.group(2)}", raw)
 
 

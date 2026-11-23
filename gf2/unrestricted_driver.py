@@ -36,7 +36,7 @@ from .qed import (
     polarization_tau_unrestricted,
     sigma_eb_tau,
 )
-from .reporting import Reporter, RunSummary, fortran_real
+from .reporting import Reporter, RunSummary, d_real
 from .utils import linear_mix, nelec_from_density
 
 SPINS = ("alpha", "beta")
@@ -338,8 +338,8 @@ def run_unrestricted_gf2(
                 fock_rms[s] = float(np.sqrt(np.mean((F[s] - F_prev[s]) ** 2)))
                 F_prev[s] = F[s].copy()
             rep.detail(
-                f"Iter {inner + 1:4d}   RMS(F alpha) = {fortran_real(fock_rms['alpha']):>12}"
-                f"   RMS(F beta) = {fortran_real(fock_rms['beta']):>12}"
+                f"Iter {inner + 1:4d}   RMS(F alpha) = {d_real(fock_rms['alpha']):>12}"
+                f"   RMS(F beta) = {d_real(fock_rms['beta']):>12}"
             )
             if opts.fock_diis_on_off == "off" or max(fock_rms.values()) < opts.thresh_fock_rms:
                 break
@@ -551,7 +551,7 @@ def run_unrestricted_gf2(
     rep.kv("Total electrons", f"{nelec_from_density(P['alpha'] + P['beta'], S):.8f}")
     rep.kv(
         "||P_alpha - P_beta||",
-        fortran_real(float(np.linalg.norm(P["alpha"] - P["beta"])), 8),
+        d_real(float(np.linalg.norm(P["alpha"] - P["beta"])), 8),
     )
     metadata = interaction.metadata()
     metadata.update(

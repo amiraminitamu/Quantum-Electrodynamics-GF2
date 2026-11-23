@@ -28,8 +28,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         epilog=(
             "The deck is a route card (#P METHOD/BASIS), a title, "
             "charge and multiplicity, Cartesian geometry, then a $GF2 "
-            "namelist. $molecule/$rem namelists and the older [section] "
-            "form are also accepted. Frequencies and couplings use atomic "
+            "namelist. $molecule/$rem namelists and [section] blocks are "
+            "also accepted. Frequencies and couplings use atomic "
             "units. A fixed-width .out transcript is written beside the "
             "input (override with %output= or output=)."
         ),

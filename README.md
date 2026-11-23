@@ -24,15 +24,15 @@ python -m pip install .
 qed-gf2 examples/h2.inp --json result.json
 ```
 
-Use `from gf2 import run_gf2` for Python calculations. Runnable exact/DF and
-one-/two-mode CS examples are in `examples/`; LF/PES utilities are in `tools/`.
+Use `from gf2 import run_gf2` for Python calculations. Molecular and cavity
+decks are in `examples/`; LF/PES utilities are in `tools/`.
 Set `QED_GF2_SIGMA_WORKERS` to control self-energy workers separately from
 Psi4 threads.
 
 The input deck starts with optional ``%`` lines, then a route card, a title,
 charge and multiplicity, Cartesian coordinates, and a ``$GF2`` namelist.
-A ``$molecule`` / ``$rem`` namelist is also accepted, as is the older
-``[section]`` form.
+A ``$molecule`` / ``$rem`` namelist is also accepted, as is a
+``[section]`` block.
 
 ```
 %NPROC=2
@@ -49,6 +49,21 @@ $GF2
  MP2  = ON
 $END
 ```
+
+## Example decks
+
+```bash
+qed-gf2 examples/h2_exact.inp
+qed-gf2 examples/h2_cs_one_mode_exact.inp
+qed-gf2 examples/h2_cs_two_mode_df.inp
+qed-gf2 examples/water_gf2.inp
+qed-gf2 examples/hf_gf2.inp
+qed-gf2 examples/heh_plus_gf2.inp
+qed-gf2 examples/lih_cs_gf2.inp
+qed-gf2 examples/lih_lf_gf2.inp
+```
+
+These cover H2 with exact and density-fitted integrals, one and two cavity modes, water, hydrogen fluoride, HeH+, closed-shell LiH in the coherent-state and projected calculations, and the open-shell Li and LiH+ decks below.
 
 ## Unrestricted electronic and cavity GF2
 
